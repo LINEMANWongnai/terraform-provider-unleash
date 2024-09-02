@@ -3,7 +3,7 @@ package inmem
 import (
 	"context"
 
-	"git.wndv.co/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
 )
 
 func (t TestServer) GetAddons(ctx context.Context, request unleash.GetAddonsRequestObject) (unleash.GetAddonsResponseObject, error) {

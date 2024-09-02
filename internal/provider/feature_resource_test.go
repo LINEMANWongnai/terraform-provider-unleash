@@ -6,7 +6,7 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 
-	"git.wndv.co/LINEMANWongnai/terraform-provider-unleash/internal/inmem"
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/inmem"
 )
 
 func TestAccFeatureResourceMinimal(t *testing.T) {

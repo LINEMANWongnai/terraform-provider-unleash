@@ -10,7 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 
-	"git.wndv.co/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
 )
 
 // Ensure UnleashProvider satisfies various provider interfaces.

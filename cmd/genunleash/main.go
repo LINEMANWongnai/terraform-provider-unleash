@@ -8,8 +8,8 @@ import (
 
 	"github.com/kelseyhightower/envconfig"
 
-	"git.wndv.co/LINEMANWongnai/terraform-provider-unleash/internal/generator"
-	"git.wndv.co/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/generator"
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
 )
 
 type Config struct {

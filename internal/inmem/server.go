@@ -9,8 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"git.wndv.co/LINEMANWongnai/terraform-provider-unleash/internal/ptr"
-	"git.wndv.co/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/ptr"
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
 )
 
 var _ unleash.StrictServerInterface = &TestServer{}

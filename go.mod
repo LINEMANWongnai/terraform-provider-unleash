@@ -1,4 +1,4 @@
-module git.wndv.co/LINEMANWongnai/terraform-provider-unleash
+module github.com/LINEMANWongnai/terraform-provider-unleash
 
 go 1.22
 
