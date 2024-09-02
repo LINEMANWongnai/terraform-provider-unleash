@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"git.wndv.co/LINEMANWongnai/terraform-provider-unleash/internal/generator"
-	"git.wndv.co/LINEMANWongnai/terraform-provider-unleash/internal/inmem"
-	"git.wndv.co/LINEMANWongnai/terraform-provider-unleash/internal/ptr"
-	"git.wndv.co/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/generator"
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/inmem"
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/ptr"
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
 )
 
 func TestGenerate(t *testing.T) {

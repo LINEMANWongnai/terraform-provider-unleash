@@ -8,7 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
 
-	"git.wndv.co/LINEMANWongnai/terraform-provider-unleash/internal/provider"
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/provider"
 )
 
 func init() {
