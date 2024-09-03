@@ -181,7 +181,7 @@ resource "unleash_feature" "full" {
 							context_name = "userId"
 							operator = "IN"
 							inverted = false	
-							values = ["uid1", "uid2"]
+							values_json = "[\"uid1\",\"uid2\"]"
 						}
 					]
 					variants = [
@@ -225,11 +225,11 @@ resource "unleash_feature" "full" {
 					overrides = [
 						{
 							context_name = "userId"
-							values = ["uid1", "uid2"]
+							values_json = "[\"uid1\",\"uid2\"]"
 						},
 						{
 							context_name = "device"
-							values = ["iphone"]
+							values_json = jsonencode(["iphone"])
 						},
 					]
 				},
@@ -353,14 +353,14 @@ resource "unleash_feature" "full" {
 							context_name = "userId"
 							operator = "IN"
 							inverted = false	
-							values = ["uid1", "uid2", "uid3"]
+							values_json = jsonencode(["uid1", "uid2", "uid3"])
 						},
 						{
 							case_insensitive = true
 							context_name = "businessId"
 							operator = "IN"
 							inverted = false	
-							values = ["m1", "m2"]
+							values_json = "[\"m1\",\"m2\"]"
 						},
 					]
 					variants = [
