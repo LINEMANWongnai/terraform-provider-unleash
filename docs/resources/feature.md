@@ -69,7 +69,7 @@ Read-Only:
 
 Required:
 
-- `values` (Set of String) values for constraint
+- `values_json` (String) An array of string values encoded in JSON. This need to be JSON to avoid performance issue with large number of values.
 
 Optional:
 
@@ -121,4 +121,4 @@ Required:
 
 Optional:
 
-- `values` (List of String) Overriding values
+- `values_json` (String) An overriding array of string values encoded in JSON. This need to be JSON to avoid performance issue with large number of values.

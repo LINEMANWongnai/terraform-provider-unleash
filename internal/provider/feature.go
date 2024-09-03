@@ -1,6 +1,8 @@
 package provider
 
 import (
+	"encoding/json"
+
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -36,8 +38,8 @@ type VariantModel struct {
 }
 
 type VariantOverrideModel struct {
-	ContextName types.String   `tfsdk:"context_name"`
-	Values      []types.String `tfsdk:"values"`
+	ContextName types.String `tfsdk:"context_name"`
+	JsonValues  types.String `tfsdk:"values_json"`
 }
 
 type StrategyModel struct {
@@ -53,11 +55,11 @@ type StrategyModel struct {
 }
 
 type ConstraintModel struct {
-	CaseInsensitive types.Bool     `tfsdk:"case_insensitive"`
-	ContextName     types.String   `tfsdk:"context_name"`
-	Operator        types.String   `tfsdk:"operator"`
-	Inverted        types.Bool     `tfsdk:"inverted"`
-	Values          []types.String `tfsdk:"values"`
+	CaseInsensitive types.Bool   `tfsdk:"case_insensitive"`
+	ContextName     types.String `tfsdk:"context_name"`
+	Operator        types.String `tfsdk:"operator"`
+	Inverted        types.Bool   `tfsdk:"inverted"`
+	JsonValues      types.String `tfsdk:"values_json"`
 }
 
 type StrategyVariantModel struct {
@@ -173,10 +175,9 @@ func createVariantOverrideResourceSchemaAttrs() map[string]schema.Attribute {
 			Description: "The name of the context field used to determine overrides",
 			Required:    true,
 		},
-		"values": schema.ListAttribute{
-			Description: "Overriding values",
+		"values_json": schema.StringAttribute{
+			Description: "An overriding array of string values encoded in JSON. This need to be JSON to avoid performance issue with large number of values.",
 			Optional:    true,
-			ElementType: types.StringType,
 		},
 	}
 }
@@ -251,10 +252,9 @@ func createConstraintResourceSchemaAttrs() map[string]schema.Attribute {
 			Description: "Inverted flag",
 			Optional:    true,
 		},
-		"values": schema.SetAttribute{
-			Description: "values for constraint",
+		"values_json": schema.StringAttribute{
+			Description: "An array of string values encoded in JSON. This need to be JSON to avoid performance issue with large number of values.",
 			Required:    true,
-			ElementType: types.StringType,
 		},
 	}
 }
@@ -288,7 +288,7 @@ func createStrategyVariantResourceSchemaAttrs() map[string]schema.Attribute {
 	}
 }
 
-func toFeatureModel(fetchedFeature unleash.FetchedFeature) FeatureModel {
+func toFeatureModel(fetchedFeature unleash.FetchedFeature) (FeatureModel, error) {
 	f := FeatureModel{
 		ID:      types.StringValue(fetchedFeature.FetchedProject + "." + fetchedFeature.Feature.Name),
 		Project: types.StringValue(fetchedFeature.FetchedProject),
@@ -306,28 +306,40 @@ func toFeatureModel(fetchedFeature unleash.FetchedFeature) FeatureModel {
 	if len(fetchedFeature.FetchedEnvironments) > 0 {
 		f.Environments = make(map[string]EnvironmentModel, len(fetchedFeature.FetchedEnvironments))
 		for _, fetchedEnv := range fetchedFeature.FetchedEnvironments {
-			f.Environments[fetchedEnv.Environment.Name] = toEnvironmentModel(fetchedEnv)
+			environmentModel, err := toEnvironmentModel(fetchedEnv)
+			if err != nil {
+				return f, err
+			}
+			f.Environments[fetchedEnv.Environment.Name] = environmentModel
 		}
 	}
 
-	return f
+	return f, nil
 }
 
-func toEnvironmentModel(fetchedEnv unleash.FetchedEnvironment) EnvironmentModel {
+func toEnvironmentModel(fetchedEnv unleash.FetchedEnvironment) (EnvironmentModel, error) {
 	envModel := EnvironmentModel{
 		Enabled: types.BoolValue(fetchedEnv.Environment.Enabled),
 	}
 	for _, variant := range fetchedEnv.FetchedVariants {
-		envModel.Variants = append(envModel.Variants, toVariantModel(variant))
+		variantModel, err := toVariantModel(variant)
+		if err != nil {
+			return envModel, err
+		}
+		envModel.Variants = append(envModel.Variants, variantModel)
 	}
 	for _, strategy := range fetchedEnv.FetchedStrategies {
-		envModel.Strategies = append(envModel.Strategies, toStrategyModel(strategy))
+		strategyModel, err := toStrategyModel(strategy)
+		if err != nil {
+			return envModel, err
+		}
+		envModel.Strategies = append(envModel.Strategies, strategyModel)
 	}
 
-	return envModel
+	return envModel, nil
 }
 
-func toVariantModel(variant unleash.VariantSchema) VariantModel {
+func toVariantModel(variant unleash.VariantSchema) (VariantModel, error) {
 	variantModel := VariantModel{
 		Name: types.StringValue(variant.Name),
 	}
@@ -347,26 +359,34 @@ func toVariantModel(variant unleash.VariantSchema) VariantModel {
 	if variant.Overrides != nil && len(*variant.Overrides) > 0 {
 		variantModel.Overrides = make([]VariantOverrideModel, len(*variant.Overrides))
 		for i, override := range *variant.Overrides {
-			variantModel.Overrides[i] = toVariantOverrideModel(override)
+			variantOverrideModel, err := toVariantOverrideModel(override)
+			if err != nil {
+				return variantModel, err
+			}
+
+			variantModel.Overrides[i] = variantOverrideModel
 		}
 	}
 
-	return variantModel
+	return variantModel, nil
 }
 
-func toVariantOverrideModel(override unleash.OverrideSchema) VariantOverrideModel {
+func toVariantOverrideModel(override unleash.OverrideSchema) (VariantOverrideModel, error) {
 	overrideModel := VariantOverrideModel{
 		ContextName: types.StringValue(override.ContextName),
 	}
-	overrideModel.Values = make([]types.String, len(override.Values))
-	for i, value := range override.Values {
-		overrideModel.Values[i] = types.StringValue(value)
+	if override.Values != nil || len(override.Values) > 0 {
+		b, err := json.Marshal(override.Values)
+		if err != nil {
+			return overrideModel, err
+		}
+		overrideModel.JsonValues = types.StringValue(string(b))
 	}
 
-	return overrideModel
+	return overrideModel, nil
 }
 
-func toStrategyModel(strategy unleash.FeatureStrategySchema) StrategyModel {
+func toStrategyModel(strategy unleash.FeatureStrategySchema) (StrategyModel, error) {
 	strategyModel := StrategyModel{
 		Name:     types.StringValue(strategy.Name),
 		Disabled: types.BoolValue(false),
@@ -385,7 +405,11 @@ func toStrategyModel(strategy unleash.FeatureStrategySchema) StrategyModel {
 	}
 	if strategy.Constraints != nil {
 		for _, constraint := range *strategy.Constraints {
-			strategyModel.Constraints = append(strategyModel.Constraints, toConstraintModel(constraint))
+			constraintModel, err := toConstraintModel(constraint)
+			if err != nil {
+				return strategyModel, err
+			}
+			strategyModel.Constraints = append(strategyModel.Constraints, constraintModel)
 		}
 	}
 	if strategy.Parameters != nil && len(*strategy.Parameters) > 0 {
@@ -405,10 +429,10 @@ func toStrategyModel(strategy unleash.FeatureStrategySchema) StrategyModel {
 		}
 	}
 
-	return strategyModel
+	return strategyModel, nil
 }
 
-func toConstraintModel(constraint unleash.ConstraintSchema) ConstraintModel {
+func toConstraintModel(constraint unleash.ConstraintSchema) (ConstraintModel, error) {
 	constraintModel := ConstraintModel{
 		ContextName: types.StringValue(constraint.ContextName),
 		Operator:    types.StringValue(string(constraint.Operator)),
@@ -419,16 +443,23 @@ func toConstraintModel(constraint unleash.ConstraintSchema) ConstraintModel {
 	if constraint.Inverted != nil {
 		constraintModel.Inverted = types.BoolValue(*constraint.Inverted)
 	}
+	var values []string
 	if constraint.Value != nil {
-		constraintModel.Values = append(constraintModel.Values, types.StringValue(*constraint.Value))
+		values = append(values, *constraint.Value)
 	}
 	if constraint.Values != nil {
-		for _, value := range *constraint.Values {
-			constraintModel.Values = append(constraintModel.Values, types.StringValue(value))
-		}
+		values = append(values, *constraint.Values...)
 	}
 
-	return constraintModel
+	if len(values) > 0 {
+		b, err := json.Marshal(values)
+		if err != nil {
+			return constraintModel, err
+		}
+		constraintModel.JsonValues = types.StringValue(string(b))
+	}
+
+	return constraintModel, nil
 }
 
 func toStrategyVariantModel(variant unleash.StrategyVariantSchema) StrategyVariantModel {
@@ -446,4 +477,13 @@ func toStrategyVariantModel(variant unleash.StrategyVariantSchema) StrategyVaria
 	}
 
 	return strategyVariantModel
+}
+
+func toStringValues(jsonValues string) ([]string, error) {
+	var stringValues []string
+	err := json.Unmarshal([]byte(jsonValues), &stringValues)
+	if err != nil {
+		return stringValues, err
+	}
+	return stringValues, nil
 }

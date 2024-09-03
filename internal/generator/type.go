@@ -39,7 +39,7 @@ func createVariantType() cty.Type {
 func createVariantOverrideType() cty.Type {
 	return cty.Object(map[string]cty.Type{
 		"context_name": cty.String,
-		"values":       cty.List(cty.String),
+		"values_json":  cty.String,
 	})
 }
 
@@ -62,7 +62,7 @@ func createConstraintType() cty.Type {
 		"context_name":     cty.String,
 		"operator":         cty.String,
 		"inverted":         cty.Bool,
-		"values":           cty.List(cty.String),
+		"values_json":      cty.String,
 	})
 }
 

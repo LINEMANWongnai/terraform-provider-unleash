@@ -114,7 +114,11 @@ func (r *FeatureResource) updateEnvironments(ctx context.Context, projectID stri
 	for name, env := range environments {
 		existingEnv, ok := existingEnvironmentByName[name]
 		if !ok {
-			existingEnv = toEnvironmentModel(unleash.FetchedEnvironment{})
+			var err error
+			existingEnv, err = toEnvironmentModel(unleash.FetchedEnvironment{})
+			if err != nil {
+				return err
+			}
 		}
 
 		updatedEnv, err := r.updateEnvironment(ctx, projectID, featureName, name, env, existingEnv)
@@ -198,11 +202,13 @@ func (r *FeatureResource) addStrategy(ctx context.Context, projectID string, fea
 				Inverted:        constraint.Inverted.ValueBoolPointer(),
 				Operator:        unleash.ConstraintSchemaOperator(constraint.Operator.ValueString()),
 			}
-			values := make([]string, 0, len(constraint.Values))
-			for _, value := range constraint.Values {
-				values = append(values, value.ValueString())
+			if !constraint.JsonValues.IsNull() {
+				values, err := toStringValues(constraint.JsonValues.ValueString())
+				if err != nil {
+					return "", err
+				}
+				constraintBody.Values = &values
 			}
-			constraintBody.Values = &values
 
 			constraints = append(constraints, constraintBody)
 		}
@@ -250,8 +256,14 @@ func (r *FeatureResource) addStrategy(ctx context.Context, projectID string, fea
 }
 
 func (r *FeatureResource) updateStrategy(ctx context.Context, projectID string, featureName string, environmentID string, strategy StrategyModel, existingStrategy StrategyModel) error {
-	body := toUpdateStrategyBody(strategy)
-	existingBody := toUpdateStrategyBody(existingStrategy)
+	body, err := toUpdateStrategyBody(strategy)
+	if err != nil {
+		return err
+	}
+	existingBody, err := toUpdateStrategyBody(existingStrategy)
+	if err != nil {
+		return err
+	}
 	if !cmp.Equal(body, existingBody) {
 		resp, err := r.client.UpdateFeatureStrategyWithResponse(ctx, projectID, featureName, environmentID, existingStrategy.Id.ValueString(), body)
 		if err != nil {
@@ -294,7 +306,7 @@ func (r *FeatureResource) updateStrategy(ctx context.Context, projectID string, 
 	return nil
 }
 
-func toUpdateStrategyBody(strategy StrategyModel) unleash.UpdateFeatureStrategyJSONRequestBody {
+func toUpdateStrategyBody(strategy StrategyModel) (unleash.UpdateFeatureStrategyJSONRequestBody, error) {
 	body := unleash.UpdateFeatureStrategyJSONRequestBody{
 		Name:     strategy.Name.ValueStringPointer(),
 		Title:    strategy.Title.ValueStringPointer(),
@@ -322,12 +334,14 @@ func toUpdateStrategyBody(strategy StrategyModel) unleash.UpdateFeatureStrategyJ
 				Inverted:        constraint.Inverted.ValueBoolPointer(),
 				Operator:        unleash.ConstraintSchemaOperator(constraint.Operator.ValueString()),
 			}
-			if len(constraint.Values) > 0 {
-				values := make([]string, 0, len(constraint.Values))
-				for _, value := range constraint.Values {
-					values = append(values, value.ValueString())
+			if !constraint.JsonValues.IsNull() {
+				values, err := toStringValues(constraint.JsonValues.ValueString())
+				if err != nil {
+					return body, err
 				}
-				constraintBody.Values = &values
+				if len(values) > 0 {
+					constraintBody.Values = &values
+				}
 			}
 
 			constraints = append(constraints, constraintBody)
@@ -358,7 +372,7 @@ func toUpdateStrategyBody(strategy StrategyModel) unleash.UpdateFeatureStrategyJ
 		body.Variants = &variants
 	}
 
-	return body
+	return body, nil
 }
 
 func toUpdateStrategySegmentsBody(projectID string, environmentID string, strategyID string, segments []types.Float32) unleash.UpdateFeatureStrategySegmentsJSONRequestBody {
@@ -435,9 +449,13 @@ func (r *FeatureResource) updateEnvironmentVariants(ctx context.Context, project
 				overrideBody := unleash.OverrideSchema{
 					ContextName: override.ContextName.ValueString(),
 				}
-				if len(override.Values) > 0 {
-					for _, v := range override.Values {
-						overrideBody.Values = append(overrideBody.Values, v.ValueString())
+				if !override.JsonValues.IsNull() {
+					values, err := toStringValues(override.JsonValues.ValueString())
+					if err != nil {
+						return environment, err
+					}
+					if len(values) > 0 {
+						overrideBody.Values = values
 					}
 				}
 				overrides[i] = overrideBody
@@ -527,11 +545,15 @@ func (r *FeatureResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 	fetchedFeature, err := unleash.GetFeature(ctx, r.client, projectID, featureName)
 	if err != nil {
-		resp.Diagnostics.AddError("failed to get features", err.Error())
+		resp.Diagnostics.AddError("failed to get feature", err.Error())
 		return
 	}
 
-	data.FeatureModel = toFeatureModel(fetchedFeature)
+	data.FeatureModel, err = toFeatureModel(fetchedFeature)
+	if err != nil {
+		resp.Diagnostics.AddError("failed to convert feature", err.Error())
+		return
+	}
 
 	// Write logs using the tflog package
 	// Documentation: https://terraform.io/plugin/log

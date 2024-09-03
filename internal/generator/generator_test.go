@@ -277,7 +277,7 @@ func TestGenerate(t *testing.T) {
           context_name     = "userId"
           inverted         = false
           operator         = "IN"
-          values           = ["9", "10"]
+          values_json      = "[\"9\",\"10\"]"
         }]
         disabled = false
         name     = "myRolloutStrategy2"
@@ -301,13 +301,13 @@ func TestGenerate(t *testing.T) {
           context_name     = "userId"
           inverted         = true
           operator         = "IN"
-          values           = ["1", "3", "4"]
+          values_json      = "[\"1\",\"3\",\"4\"]"
           }, {
           case_insensitive = null
           context_name     = "restaurantID"
           inverted         = null
           operator         = "IN"
-          values           = ["a"]
+          values_json      = "[\"a\"]"
         }]
         disabled = true
         name     = "myRolloutStrategy"
@@ -337,10 +337,10 @@ func TestGenerate(t *testing.T) {
         name = "dev variant1"
         overrides = [{
           context_name = "UA"
-          values       = ["x", "y"]
+          values_json  = "[\"x\",\"y\"]"
           }, {
           context_name = "userID"
-          values       = ["1", "2", "3"]
+          values_json  = "[\"1\",\"2\",\"3\"]"
         }]
         payload      = "{value}"
         payload_type = "json"
@@ -365,7 +365,7 @@ func TestGenerate(t *testing.T) {
           context_name     = "userId"
           inverted         = false
           operator         = "IN"
-          values           = null
+          values_json      = null
         }]
         disabled = false
         name     = "standard"
@@ -388,7 +388,7 @@ func TestGenerate(t *testing.T) {
         name = "prod variant1"
         overrides = [{
           context_name = "UA"
-          values       = ["x", "y"]
+          values_json  = "[\"x\",\"y\"]"
         }]
         payload      = "{value}"
         payload_type = "json"
