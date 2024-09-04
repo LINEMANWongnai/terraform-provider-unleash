@@ -543,9 +543,13 @@ func (r *FeatureResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 	projectID, featureName := extractProjectAndFeatureName(data)
 
-	fetchedFeature, err := unleash.GetFeature(ctx, r.client, projectID, featureName)
+	fetchedFeature, found, err := unleash.GetFeature(ctx, r.client, projectID, featureName)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to get feature", err.Error())
+		return
+	}
+	if !found {
+		resp.State.RemoveResource(ctx)
 		return
 	}
 

@@ -95,14 +95,19 @@ func fetchEnvironmentProperties(ctx context.Context, client ClientWithResponsesI
 	return fetchedEnv, nil
 }
 
-func GetFeature(ctx context.Context, client ClientWithResponsesInterface, projectID string, featureName string) (FetchedFeature, error) {
+func GetFeature(ctx context.Context, client ClientWithResponsesInterface, projectID string, featureName string) (FetchedFeature, bool, error) {
 	featureResp, err := client.GetFeatureWithResponse(ctx, projectID, featureName)
 	if err != nil {
-		return FetchedFeature{}, err
+		return FetchedFeature{}, false, err
+	}
+	if featureResp.StatusCode() == 404 {
+		return FetchedFeature{}, false, nil
 	}
 	if featureResp.StatusCode() > 299 {
-		return FetchedFeature{}, fmt.Errorf("failed to get feature %s from project %s with status %d %s", featureName, projectID, featureResp.StatusCode(), string(featureResp.Body))
+		return FetchedFeature{}, false, fmt.Errorf("failed to get feature %s from project %s with status %d %s", featureName, projectID, featureResp.StatusCode(), string(featureResp.Body))
 	}
 
-	return fetchFeatureProperties(ctx, client, projectID, *featureResp.JSON200)
+	fetched, err := fetchFeatureProperties(ctx, client, projectID, *featureResp.JSON200)
+
+	return fetched, true, err
 }
