@@ -6,14 +6,15 @@ the [Official Unleash Plugin](https://github.com/Unleash/terraform-provider-unle
 
 ## Terraform Usage
 
-To define a provider configuration:-
+To define a provider configuration (Please check for the latest version at https://registry.terraform.io/providers/LINEMANWongnai/unleash/latest
+):-
 
 ```
 terraform {
   required_providers {
     unleash = {
       source  = "LINEMANWongnai/unleash"
-      version = "1.0.0"
+      version = "1.1.4"
     }
   }
 }
