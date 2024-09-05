@@ -86,6 +86,7 @@ func (r *FeatureResource) Create(ctx context.Context, req resource.CreateRequest
 		body.Description = data.Description.ValueStringPointer()
 	}
 
+	tflog.Debug(ctx, "Creating feature", map[string]interface{}{"body": body})
 	createResp, err := r.client.CreateFeatureWithResponse(ctx, data.Project.ValueString(), body)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create feature "+data.ID.String(), err.Error())
@@ -120,7 +121,6 @@ func (r *FeatureResource) updateEnvironments(ctx context.Context, projectID stri
 				return err
 			}
 		}
-
 		updatedEnv, err := r.updateEnvironment(ctx, projectID, featureName, name, env, existingEnv)
 		if err != nil {
 			return err
@@ -267,6 +267,11 @@ func (r *FeatureResource) updateStrategy(ctx context.Context, projectID string, 
 		return err
 	}
 	if !cmp.Equal(body, existingBody) {
+		tflog.Debug(ctx, "Updating strategy", map[string]interface{}{
+			"projectID":     projectID,
+			"featureName":   featureName,
+			"environmentID": environmentID,
+			"strategy":      strategy})
 		resp, err := r.client.UpdateFeatureStrategyWithResponse(ctx, projectID, featureName, environmentID, existingStrategy.Id.ValueString(), body)
 		if err != nil {
 			return err
@@ -280,6 +285,12 @@ func (r *FeatureResource) updateStrategy(ctx context.Context, projectID string, 
 		if !strategy.SortOrder.IsNull() {
 			order = strategy.SortOrder.ValueFloat32()
 		}
+		tflog.Debug(ctx, "Setting strategy sort order", map[string]interface{}{
+			"projectID":     projectID,
+			"featureName":   featureName,
+			"environmentID": environmentID,
+			"strategy":      strategy,
+			"order":         order})
 		resp, err := r.client.SetStrategySortOrderWithResponse(ctx, projectID, featureName, environmentID, []struct {
 			Id        string  `json:"id"`
 			SortOrder float32 `json:"sortOrder"`
@@ -296,6 +307,12 @@ func (r *FeatureResource) updateStrategy(ctx context.Context, projectID string, 
 	}
 	if !cmp.Equal(strategy.Segments, existingStrategy.Segments) {
 		updateStrategySegmentBody := toUpdateStrategySegmentsBody(projectID, environmentID, strategy.Id.ValueString(), strategy.Segments)
+		tflog.Debug(ctx, "Updating strategy segments", map[string]interface{}{
+			"projectID":     projectID,
+			"featureName":   featureName,
+			"environmentID": environmentID,
+			"strategy":      strategy.Name.ValueString(),
+			"body":          updateStrategySegmentBody})
 		resp, err := r.client.UpdateFeatureStrategySegmentsWithResponse(ctx, updateStrategySegmentBody)
 		if err != nil {
 			return err
@@ -393,6 +410,12 @@ func toUpdateStrategySegmentsBody(projectID string, environmentID string, strate
 }
 
 func (r *FeatureResource) deleteStrategy(ctx context.Context, projectID string, featureName string, environmentID string, strategy StrategyModel) error {
+	tflog.Debug(ctx, "Deleting strategy", map[string]interface{}{
+		"projectID":     projectID,
+		"featureName":   featureName,
+		"environmentID": environmentID,
+		"strategy":      strategy,
+	})
 	resp, err := r.client.DeleteFeatureStrategyWithResponse(ctx, projectID, featureName, environmentID, strategy.Id.ValueString())
 	if err != nil {
 		return err
@@ -471,6 +494,13 @@ func (r *FeatureResource) updateEnvironmentVariants(ctx context.Context, project
 		variants = append(variants, variantBody)
 	}
 	variantsBody.Variants = &variants
+
+	tflog.Debug(ctx, "Overwriting variants", map[string]interface{}{
+		"projectID":     projectID,
+		"featureName":   featureName,
+		"environmentID": environmentID,
+		"body":          variantsBody,
+	})
 	resp, err := r.client.OverwriteFeatureVariantsOnEnvironmentsWithResponse(ctx, projectID, featureName, variantsBody)
 	if err != nil {
 		return environment, err
@@ -494,7 +524,7 @@ func (r *FeatureResource) isVariantsEquals(variants []VariantModel, variants2 []
 		if !ok {
 			return false
 		}
-		if cmp.Equal(variant, variant2) {
+		if !cmp.Equal(variant, variant2) {
 			return false
 		}
 	}
@@ -517,6 +547,11 @@ func (r *FeatureResource) updateEnvironmentStatus(ctx context.Context, projectID
 	}
 
 	if environment.Enabled.ValueBool() {
+		tflog.Debug(ctx, "Enabling environment", map[string]interface{}{
+			"projectID":     projectID,
+			"featureName":   featureName,
+			"environmentID": environmentID,
+		})
 		resp, err := r.client.ToggleFeatureEnvironmentOnWithResponse(ctx, projectID, featureName, environmentID)
 		if err != nil {
 			return environment, err
@@ -525,6 +560,11 @@ func (r *FeatureResource) updateEnvironmentStatus(ctx context.Context, projectID
 			return environment, fmt.Errorf("failed to enable environment for %s %s %s with status %d %s", projectID, featureName, environmentID, resp.StatusCode(), string(resp.Body))
 		}
 	} else {
+		tflog.Debug(ctx, "Disabling environment", map[string]interface{}{
+			"projectID":     projectID,
+			"featureName":   featureName,
+			"environmentID": environmentID,
+		})
 		resp, err := r.client.ToggleFeatureEnvironmentOffWithResponse(ctx, projectID, featureName, environmentID)
 		if err != nil {
 			return environment, err
@@ -595,6 +635,11 @@ func (r *FeatureResource) Update(ctx context.Context, req resource.UpdateRequest
 	featureBody := toFeatureBody(data)
 	existingFeatureBody := toFeatureBody(existingData)
 	if !cmp.Equal(featureBody, existingFeatureBody) {
+		tflog.Debug(ctx, "Updating feature", map[string]interface{}{
+			"projectID":   data.Project.ValueString(),
+			"featureName": data.Name.ValueString(),
+			"body":        featureBody,
+		})
 		updateResp, err := r.client.UpdateFeatureWithResponse(ctx, data.Project.ValueString(), data.Name.ValueString(), featureBody)
 		if err != nil {
 			resp.Diagnostics.AddError("failed to update feature "+data.ID.String(), err.Error())
@@ -643,6 +688,7 @@ func (r *FeatureResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 	data.ID = types.StringValue(resolveID(data))
 
+	tflog.Debug(ctx, "Archiving feature", map[string]interface{}{"projectID": data.Project.ValueString(), "featureName": data.Name.ValueString()})
 	archiveResp, err := r.client.ArchiveFeatureWithResponse(ctx, data.Project.ValueString(), data.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("failed to archive feature "+data.ID.String(), err.Error())
@@ -652,6 +698,7 @@ func (r *FeatureResource) Delete(ctx context.Context, req resource.DeleteRequest
 		resp.Diagnostics.AddError("failed to archive feature "+data.ID.String(), fmt.Sprintf(" with status %d %s", archiveResp.StatusCode(), string(archiveResp.Body)))
 		return
 	}
+	tflog.Debug(ctx, "Deleting feature", map[string]interface{}{"projectID": data.Project.ValueString(), "featureName": data.Name.ValueString()})
 	deleteResp, err := r.client.DeleteFeatureWithResponse(ctx, data.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("failed to delete feature "+data.ID.String(), err.Error())
