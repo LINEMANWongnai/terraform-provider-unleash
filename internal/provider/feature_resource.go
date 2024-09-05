@@ -225,19 +225,21 @@ func (r *FeatureResource) addStrategy(ctx context.Context, projectID string, fea
 		variants := make([]unleash.CreateStrategyVariantSchema, 0, len(strategy.Variants))
 		for _, variant := range strategy.Variants {
 			variantBody := unleash.CreateStrategyVariantSchema{
-				Name: variant.Name.ValueString(),
-				Payload: &struct {
-					Type  unleash.CreateStrategyVariantSchemaPayloadType `json:"type"`
-					Value string                                         `json:"value"`
-				}{
-					Type:  unleash.CreateStrategyVariantSchemaPayloadType(variant.PayloadType.ValueString()),
-					Value: variant.Payload.ValueString(),
-				},
+				Name:       variant.Name.ValueString(),
 				Stickiness: variant.Stickiness.ValueString(),
 				WeightType: unleash.CreateStrategyVariantSchemaWeightType(variant.WeightType.ValueString()),
 			}
 			if variantBody.WeightType == unleash.CreateStrategyVariantSchemaWeightTypeFix {
 				variantBody.Weight = int(variant.Weight.ValueInt64())
+			}
+			if !variant.Payload.IsNull() && !variant.PayloadType.IsNull() {
+				variantBody.Payload = &struct {
+					Type  unleash.CreateStrategyVariantSchemaPayloadType `json:"type"`
+					Value string                                         `json:"value"`
+				}{
+					Type:  unleash.CreateStrategyVariantSchemaPayloadType(variant.PayloadType.ValueString()),
+					Value: variant.Payload.ValueString(),
+				}
 			}
 
 			variants = append(variants, variantBody)
@@ -352,19 +354,21 @@ func toUpdateStrategyBody(strategy StrategyModel) (unleash.UpdateFeatureStrategy
 		variants := make([]unleash.CreateStrategyVariantSchema, 0, len(strategy.Variants))
 		for _, variant := range strategy.Variants {
 			variantBody := unleash.CreateStrategyVariantSchema{
-				Name: variant.Name.ValueString(),
-				Payload: &struct {
-					Type  unleash.CreateStrategyVariantSchemaPayloadType `json:"type"`
-					Value string                                         `json:"value"`
-				}{
-					Type:  unleash.CreateStrategyVariantSchemaPayloadType(variant.PayloadType.ValueString()),
-					Value: variant.Payload.ValueString(),
-				},
+				Name:       variant.Name.ValueString(),
 				Stickiness: variant.Stickiness.ValueString(),
 				WeightType: unleash.CreateStrategyVariantSchemaWeightType(variant.WeightType.ValueString()),
 			}
 			if variantBody.WeightType == unleash.CreateStrategyVariantSchemaWeightTypeFix {
 				variantBody.Weight = int(variant.Weight.ValueInt64())
+			}
+			if !variant.PayloadType.IsNull() && !variant.Payload.IsNull() {
+				variantBody.Payload = &struct {
+					Type  unleash.CreateStrategyVariantSchemaPayloadType `json:"type"`
+					Value string                                         `json:"value"`
+				}{
+					Type:  unleash.CreateStrategyVariantSchemaPayloadType(variant.PayloadType.ValueString()),
+					Value: variant.Payload.ValueString(),
+				}
 			}
 
 			variants = append(variants, variantBody)
@@ -426,15 +430,17 @@ func (r *FeatureResource) updateEnvironmentVariants(ctx context.Context, project
 	variants := make([]unleash.VariantSchema, 0, len(environment.Variants))
 	for _, variant := range environment.Variants {
 		variantBody := unleash.VariantSchema{
-			Name: variant.Name.ValueString(),
-			Payload: &struct {
+			Name:       variant.Name.ValueString(),
+			Stickiness: variant.Stickiness.ValueStringPointer(),
+		}
+		if !variant.PayloadType.IsNull() && !variant.Payload.IsNull() {
+			variantBody.Payload = &struct {
 				Type  unleash.VariantSchemaPayloadType `json:"type"`
 				Value string                           `json:"value"`
 			}{
 				Type:  unleash.VariantSchemaPayloadType(variant.PayloadType.ValueString()),
 				Value: variant.Payload.ValueString(),
-			},
-			Stickiness: variant.Stickiness.ValueStringPointer(),
+			}
 		}
 		if !variant.WeightType.IsNull() {
 			t := unleash.VariantSchemaWeightType(variant.WeightType.ValueString())
