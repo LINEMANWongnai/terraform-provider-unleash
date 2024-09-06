@@ -41,7 +41,7 @@ Required:
 
 Optional:
 
-- `variants` (Attributes Set) Variants of this feature (see [below for nested schema](#nestedatt--environments--variants))
+- `variants` (Attributes List) Variants of this feature (see [below for nested schema](#nestedatt--environments--variants))
 
 <a id="nestedatt--environments--strategies"></a>
 ### Nested Schema for `environments.strategies`
@@ -58,7 +58,7 @@ Optional:
 - `segments` (Set of Number) Segment IDs of this strategy
 - `sort_order` (Number) Sort order
 - `title` (String) Title of this strategy
-- `variants` (Attributes Set) Variants of this strategy (see [below for nested schema](#nestedatt--environments--strategies--variants))
+- `variants` (Attributes List) Variants of this strategy (see [below for nested schema](#nestedatt--environments--strategies--variants))
 
 Read-Only:
 
