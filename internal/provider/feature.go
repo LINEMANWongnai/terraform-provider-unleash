@@ -2,7 +2,9 @@ package provider
 
 import (
 	"encoding/json"
+	"sort"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
@@ -116,7 +118,7 @@ func createEnvironmentResourceSchemaAttrs() map[string]schema.Attribute {
 			Description: "Is this environment enabled",
 			Required:    true,
 		},
-		"variants": schema.SetNestedAttribute{
+		"variants": schema.ListNestedAttribute{
 			Description: "Variants of this feature",
 			NestedObject: schema.NestedAttributeObject{
 				Attributes: createVariantResourceSchemaAttrs(),
@@ -224,7 +226,7 @@ func createStrategyResourceSchemaAttrs() map[string]schema.Attribute {
 			Optional:    true,
 			ElementType: types.Float32Type,
 		},
-		"variants": schema.SetNestedAttribute{
+		"variants": schema.ListNestedAttribute{
 			Description: "Variants of this strategy",
 			Optional:    true,
 			NestedObject: schema.NestedAttributeObject{
@@ -297,7 +299,7 @@ func toFeatureModel(fetchedFeature unleash.FetchedFeature) (FeatureModel, error)
 	if fetchedFeature.Feature.Type != nil {
 		f.Type = types.StringValue(*fetchedFeature.Feature.Type)
 	}
-	if fetchedFeature.Feature.Description != nil {
+	if fetchedFeature.Feature.Description != nil && *fetchedFeature.Feature.Description != "" {
 		f.Description = types.StringValue(*fetchedFeature.Feature.Description)
 	}
 	if fetchedFeature.Feature.ImpressionData != nil {
@@ -487,3 +489,114 @@ func toStringValues(jsonValues string) ([]string, error) {
 	}
 	return stringValues, nil
 }
+
+type variantModelWithIndex struct {
+	Variant VariantModel
+	Index   int
+}
+
+type variantsDiff struct {
+	ToAdd     []variantModelWithIndex
+	ToRemove  []variantModelWithIndex
+	ToReplace []variantModelWithIndex
+	Mode      variantDiffMode
+}
+
+func getVariantDiffMode(variants []VariantModel, existingVariants []VariantModel) variantsDiff {
+	diff := variantsDiff{
+		Mode: variantDiffModeMixed,
+	}
+
+	if len(variants) == len(existingVariants) {
+		for i := 0; i < len(existingVariants); i++ {
+			variant := variants[i]
+			existingVariant := existingVariants[i]
+			if cmp.Equal(variant, existingVariant) {
+				continue
+			}
+			diff.ToReplace = append(diff.ToReplace, variantModelWithIndex{
+				Variant: variant,
+				Index:   i,
+			})
+		}
+
+		if len(diff.ToReplace) == 0 {
+			diff.Mode = variantDiffModeEqual
+		} else {
+			diff.Mode = variantDiffModeReplaceOnly
+		}
+
+		return diff
+	}
+
+	variantModelByName := toVariantModelByName(variants)
+	existingVariantModelByName := toVariantModelByName(existingVariants)
+
+	for i, variantModel := range variants {
+		_, ok := existingVariantModelByName[variantModel.Name.ValueString()]
+		if !ok {
+			diff.ToAdd = append(diff.ToAdd, variantModelWithIndex{
+				Variant: variantModel,
+				Index:   i,
+			})
+		}
+	}
+	for i, existingVariant := range existingVariants {
+		variantModel, ok := variantModelByName[existingVariant.Name.ValueString()]
+		if !ok {
+			diff.ToRemove = append(diff.ToRemove, variantModelWithIndex{
+				Variant: existingVariant,
+				Index:   i,
+			})
+			continue
+		}
+		if !cmp.Equal(variantModel, existingVariant) {
+			diff.ToReplace = append(diff.ToReplace, variantModelWithIndex{
+				Variant: variantModel,
+				Index:   i,
+			})
+		}
+	}
+
+	toAddLen := len(diff.ToAdd)
+	toRemoveLen := len(diff.ToRemove)
+	if toAddLen > 0 {
+		sort.Sort(byIndexAsc(diff.ToAdd))
+	}
+	if toRemoveLen > 0 {
+		sort.Sort(byIndexDesc(diff.ToRemove))
+	}
+
+	if len(diff.ToReplace) == 0 {
+		if toAddLen > 0 {
+			if toRemoveLen == 0 {
+				diff.Mode = variantDiffModeAddOnly
+			}
+		} else if toRemoveLen > 0 {
+			diff.Mode = variantDiffModeRemoveOnly
+		}
+	}
+
+	return diff
+}
+
+func toVariantModelByName(variants []VariantModel) map[string]VariantModel {
+	variantModelByName := make(map[string]VariantModel)
+	for _, variant := range variants {
+		variantModelByName[variant.Name.ValueString()] = variant
+	}
+
+	return variantModelByName
+}
+
+type byIndexAsc []variantModelWithIndex
+
+func (a byIndexAsc) Len() int           { return len(a) }
+func (a byIndexAsc) Less(i, j int) bool { return a[i].Index < a[j].Index }
+func (a byIndexAsc) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+
+type byIndexDesc []variantModelWithIndex
+
+func (a byIndexDesc) Len() int           { return len(a) }
+func (a byIndexDesc) Less(i, j int) bool { return a[i].Index > a[j].Index }
+func (a byIndexDesc) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }

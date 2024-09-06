@@ -2,6 +2,8 @@ package inmem
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -463,6 +465,20 @@ func (t TestServer) OverwriteFeatureVariantsOnEnvironments(_ context.Context, re
 		return unleash.OverwriteFeatureVariantsOnEnvironments400JSONResponse{}, nil
 	}
 	for _, requestEnvironment := range *request.Body.Environments {
+		if request.Body.Variants != nil {
+			for _, v := range *request.Body.Variants {
+				if v.Overrides == nil {
+					continue
+				}
+				for _, o := range *v.Overrides {
+					// emulate too large body error
+					if len(o.Values) > 100 {
+						return OverwriteFeatureVariantsOnEnvironments413JSONResponse{}, nil
+					}
+				}
+			}
+		}
+
 		_, ok := updateEnvironment(feature, requestEnvironment, func(environment *unleash.FeatureEnvironmentSchema) unleash.FeatureStrategySchema {
 			environment.Variants = request.Body.Variants
 
@@ -524,4 +540,81 @@ func (t TestServer) UpdateFeatureStrategySegments(_ context.Context, request unl
 	}
 
 	return unleash.UpdateFeatureStrategySegments201JSONResponse{}, nil
+}
+
+func (t TestServer) PatchEnvironmentsFeatureVariants(_ context.Context, request unleash.PatchEnvironmentsFeatureVariantsRequestObject) (unleash.PatchEnvironmentsFeatureVariantsResponseObject, error) {
+	for _, patch := range *request.Body {
+		switch patch.Op {
+		case "remove":
+			{
+				feature, ok := t.getFeature(request.ProjectId, request.FeatureName)
+				if !ok {
+					return unleash.PatchEnvironmentsFeatureVariants404JSONResponse{}, nil
+				}
+				_, ok = updateEnvironment(feature, request.Environment, func(environment *unleash.FeatureEnvironmentSchema) unleash.FeatureStrategySchema {
+					variants := *environment.Variants
+					index, _ := strconv.Atoi(patch.Path[1:])
+					variants = append(variants[:index], variants[index+1:]...)
+					environment.Variants = &variants
+
+					return unleash.FeatureStrategySchema{}
+				})
+				if !ok {
+					return unleash.PatchEnvironmentsFeatureVariants404JSONResponse{}, nil
+				}
+				t.replaceFeature(feature)
+				break
+			}
+		case "replace":
+			{
+				feature, ok := t.getFeature(request.ProjectId, request.FeatureName)
+				if !ok {
+					return unleash.PatchEnvironmentsFeatureVariants404JSONResponse{}, nil
+				}
+				_, ok = updateEnvironment(feature, request.Environment, func(environment *unleash.FeatureEnvironmentSchema) unleash.FeatureStrategySchema {
+					variants := *environment.Variants
+					index, _ := strconv.Atoi(patch.Path[1:])
+
+					v := unleash.VariantSchema{}
+					m, _ := (*patch.Value).(map[string]interface{})
+					b, _ := json.Marshal(m)
+					_ = json.Unmarshal(b, &v)
+
+					variants[index] = v
+					environment.Variants = &variants
+
+					return unleash.FeatureStrategySchema{}
+				})
+				if !ok {
+					return unleash.PatchEnvironmentsFeatureVariants404JSONResponse{}, nil
+				}
+				t.replaceFeature(feature)
+				break
+			}
+		default:
+			return unleash.PatchEnvironmentsFeatureVariants400JSONResponse{
+				Message: ptr.ToPtr("operation " + string(patch.Op) + " is not supported"),
+			}, nil
+		}
+	}
+
+	return unleash.PatchEnvironmentsFeatureVariants200JSONResponse{}, nil
+}
+
+type OverwriteFeatureVariantsOnEnvironments413JSONResponse struct {
+	// Id The ID of the error instance
+	Id *string `json:"id,omitempty"`
+
+	// Message A description of what went wrong.
+	Message *string `json:"message,omitempty"`
+
+	// Name The name of the error kind
+	Name *string `json:"name,omitempty"`
+}
+
+func (response OverwriteFeatureVariantsOnEnvironments413JSONResponse) VisitOverwriteFeatureVariantsOnEnvironmentsResponse(w http.ResponseWriter) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(413)
+
+	return json.NewEncoder(w).Encode(response)
 }

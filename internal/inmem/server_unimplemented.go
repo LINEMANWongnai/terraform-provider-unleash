@@ -431,11 +431,6 @@ func (t TestServer) PatchFeatureStrategy(ctx context.Context, request unleash.Pa
 	panic("implement me")
 }
 
-func (t TestServer) PatchEnvironmentsFeatureVariants(ctx context.Context, request unleash.PatchEnvironmentsFeatureVariantsRequestObject) (unleash.PatchEnvironmentsFeatureVariantsResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (t TestServer) OverwriteEnvironmentFeatureVariants(ctx context.Context, request unleash.OverwriteEnvironmentFeatureVariantsRequestObject) (unleash.OverwriteEnvironmentFeatureVariantsResponseObject, error) {
 	//TODO implement me
 	panic("implement me")

@@ -20,7 +20,7 @@ func createEnvironmentType() cty.Type {
 	return cty.Object(map[string]cty.Type{
 		"enabled":    cty.Bool,
 		"strategies": cty.Set(createStrategyType()),
-		"variants":   cty.Set(createVariantType()),
+		"variants":   cty.List(createVariantType()),
 	})
 }
 
@@ -52,7 +52,7 @@ func createStrategyType() cty.Type {
 		"constraints": cty.Set(createConstraintType()),
 		"parameters":  cty.Map(cty.String),
 		"segments":    cty.List(cty.Number),
-		"variants":    cty.Set(createStrategyVariantType()),
+		"variants":    cty.List(createStrategyVariantType()),
 	})
 }
 

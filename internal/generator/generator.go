@@ -173,7 +173,7 @@ func toStrategyAttributes(strategy unleash.FeatureStrategySchema) (map[string]ct
 
 func toVariants(variants []unleash.VariantSchema) (cty.Value, error) {
 	if len(variants) == 0 {
-		return cty.NullVal(cty.Set(variantType)), nil
+		return cty.NullVal(cty.List(variantType)), nil
 	}
 	variantValues := make([]cty.Value, 0, len(variants))
 	for _, variant := range variants {
@@ -197,12 +197,12 @@ func toVariants(variants []unleash.VariantSchema) (cty.Value, error) {
 		}
 		overrides, err := toVariantOverrides(variant.Overrides)
 		if err != nil {
-			return cty.NullVal(cty.Set(variantType)), err
+			return cty.NullVal(cty.List(variantType)), err
 		}
 		attributes["overrides"] = overrides
 		variantValues = append(variantValues, cty.ObjectVal(attributes))
 	}
-	return cty.SetVal(variantValues), nil
+	return cty.ListVal(variantValues), nil
 }
 
 func toVariantOverrides(overrides *[]unleash.OverrideSchema) (cty.Value, error) {
@@ -306,7 +306,7 @@ func toSegments(segments *[]float32) cty.Value {
 
 func toStrategyVariants(variants *[]unleash.StrategyVariantSchema) cty.Value {
 	if variants == nil || len(*variants) == 0 {
-		return cty.NullVal(cty.Set(strategyVariantType))
+		return cty.NullVal(cty.List(strategyVariantType))
 	}
 	variantValues := make([]cty.Value, 0, len(*variants))
 	for _, variant := range *variants {
@@ -327,5 +327,5 @@ func toStrategyVariants(variants *[]unleash.StrategyVariantSchema) cty.Value {
 		}
 		variantValues = append(variantValues, cty.ObjectVal(attributes))
 	}
-	return cty.SetVal(variantValues)
+	return cty.ListVal(variantValues)
 }

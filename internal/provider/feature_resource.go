@@ -69,7 +69,6 @@ func (r *FeatureResource) Configure(_ context.Context, req resource.ConfigureReq
 func (r *FeatureResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data FeatureResourceModel
 
-	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 
 	if resp.Diagnostics.HasError() {
@@ -103,11 +102,8 @@ func (r *FeatureResource) Create(ctx context.Context, req resource.CreateRequest
 		return
 	}
 
-	// Write logs using the 	tflog package
-	// Documentation: https://terraform.io/plugin/log
 	tflog.Trace(ctx, "created a resource")
 
-	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -444,7 +440,8 @@ func toStrategyModelKey(strategy StrategyModel) string {
 }
 
 func (r *FeatureResource) updateEnvironmentVariants(ctx context.Context, projectID string, featureName string, environmentID string, environment EnvironmentModel, existingEnv EnvironmentModel) (EnvironmentModel, error) {
-	if r.isVariantsEquals(environment.Variants, existingEnv.Variants) {
+	diff := getVariantDiffMode(environment.Variants, existingEnv.Variants)
+	if diff.Mode == variantDiffModeEqual {
 		return environment, nil
 	}
 	variantsBody := unleash.OverwriteFeatureVariantsOnEnvironmentsJSONRequestBody{
@@ -452,44 +449,9 @@ func (r *FeatureResource) updateEnvironmentVariants(ctx context.Context, project
 	}
 	variants := make([]unleash.VariantSchema, 0, len(environment.Variants))
 	for _, variant := range environment.Variants {
-		variantBody := unleash.VariantSchema{
-			Name:       variant.Name.ValueString(),
-			Stickiness: variant.Stickiness.ValueStringPointer(),
-		}
-		if !variant.PayloadType.IsNull() && !variant.Payload.IsNull() {
-			variantBody.Payload = &struct {
-				Type  unleash.VariantSchemaPayloadType `json:"type"`
-				Value string                           `json:"value"`
-			}{
-				Type:  unleash.VariantSchemaPayloadType(variant.PayloadType.ValueString()),
-				Value: variant.Payload.ValueString(),
-			}
-		}
-		if !variant.WeightType.IsNull() {
-			t := unleash.VariantSchemaWeightType(variant.WeightType.ValueString())
-			variantBody.WeightType = &t
-			if *variantBody.WeightType == unleash.Fix {
-				variantBody.Weight = variant.Weight.ValueFloat32()
-			}
-		}
-		if len(variant.Overrides) > 0 {
-			overrides := make([]unleash.OverrideSchema, len(variant.Overrides))
-			for i, override := range variant.Overrides {
-				overrideBody := unleash.OverrideSchema{
-					ContextName: override.ContextName.ValueString(),
-				}
-				if !override.JsonValues.IsNull() {
-					values, err := toStringValues(override.JsonValues.ValueString())
-					if err != nil {
-						return environment, err
-					}
-					if len(values) > 0 {
-						overrideBody.Values = values
-					}
-				}
-				overrides[i] = overrideBody
-			}
-			variantBody.Overrides = &overrides
+		variantBody, err := toVariantBody(variant)
+		if err != nil {
+			return environment, err
 		}
 		variants = append(variants, variantBody)
 	}
@@ -501,8 +463,18 @@ func (r *FeatureResource) updateEnvironmentVariants(ctx context.Context, project
 		"environmentID": environmentID,
 		"body":          variantsBody,
 	})
+	// try to do everything in one go first. this however may face a problem when the body is too large...
 	resp, err := r.client.OverwriteFeatureVariantsOnEnvironmentsWithResponse(ctx, projectID, featureName, variantsBody)
 	if err != nil {
+		return environment, err
+	}
+	if resp.StatusCode() == 413 {
+		tflog.Warn(ctx, "Cannot overwriting variants since the body is too large, try patching instead", map[string]interface{}{
+			"projectID":     projectID,
+			"featureName":   featureName,
+			"environmentID": environmentID,
+		})
+		err := r.handleTooLargeEnvironmentVariants(ctx, projectID, featureName, environmentID, variants, diff)
 		return environment, err
 	}
 	if resp.StatusCode() > 299 {
@@ -512,33 +484,170 @@ func (r *FeatureResource) updateEnvironmentVariants(ctx context.Context, project
 	return environment, nil
 }
 
-func (r *FeatureResource) isVariantsEquals(variants []VariantModel, variants2 []VariantModel) bool {
-	if len(variants) != len(variants2) {
-		return false
+func toVariantBody(variant VariantModel) (unleash.VariantSchema, error) {
+	variantBody := unleash.VariantSchema{
+		Name:       variant.Name.ValueString(),
+		Stickiness: variant.Stickiness.ValueStringPointer(),
 	}
-	variantModelByName := toVariantModelByName(variants)
-	variantModelByName2 := toVariantModelByName(variants2)
-
-	for name, variant := range variantModelByName {
-		variant2, ok := variantModelByName2[name]
-		if !ok {
-			return false
-		}
-		if !cmp.Equal(variant, variant2) {
-			return false
+	if !variant.PayloadType.IsNull() && !variant.Payload.IsNull() {
+		variantBody.Payload = &struct {
+			Type  unleash.VariantSchemaPayloadType `json:"type"`
+			Value string                           `json:"value"`
+		}{
+			Type:  unleash.VariantSchemaPayloadType(variant.PayloadType.ValueString()),
+			Value: variant.Payload.ValueString(),
 		}
 	}
-
-	return true
+	if !variant.WeightType.IsNull() {
+		t := unleash.VariantSchemaWeightType(variant.WeightType.ValueString())
+		variantBody.WeightType = &t
+		if *variantBody.WeightType == unleash.Fix {
+			variantBody.Weight = variant.Weight.ValueFloat32()
+		}
+	}
+	if len(variant.Overrides) > 0 {
+		overrides := make([]unleash.OverrideSchema, len(variant.Overrides))
+		for i, override := range variant.Overrides {
+			overrideBody := unleash.OverrideSchema{
+				ContextName: override.ContextName.ValueString(),
+			}
+			if !override.JsonValues.IsNull() {
+				values, err := toStringValues(override.JsonValues.ValueString())
+				if err != nil {
+					return variantBody, err
+				}
+				if len(values) > 0 {
+					overrideBody.Values = values
+				}
+			}
+			overrides[i] = overrideBody
+		}
+		variantBody.Overrides = &overrides
+	}
+	return variantBody, nil
 }
 
-func toVariantModelByName(variants []VariantModel) map[string]VariantModel {
-	variantModelByName := make(map[string]VariantModel)
-	for _, variant := range variants {
-		variantModelByName[variant.Name.ValueString()] = variant
+type variantDiffMode int
+
+const variantDiffModeEqual variantDiffMode = 0
+const variantDiffModeAddOnly variantDiffMode = 1
+const variantDiffModeReplaceOnly variantDiffMode = 2
+const variantDiffModeRemoveOnly variantDiffMode = 3
+const variantDiffModeMixed variantDiffMode = 4
+
+func (r *FeatureResource) handleTooLargeEnvironmentVariants(ctx context.Context, projectID string, featureName string, environmentID string, largeVariants []unleash.VariantSchema, diff variantsDiff) error {
+	patches := make([]unleash.PatchSchema, 0, len(largeVariants))
+	switch diff.Mode {
+	case variantDiffModeMixed, variantDiffModeAddOnly:
+		{
+			if diff.Mode == variantDiffModeMixed {
+				tflog.Warn(ctx, "Too many variant changes in one commit. There may be some unwanted behavior during patching changes...", map[string]interface{}{
+					"projectID":     projectID,
+					"featureName":   featureName,
+					"environmentID": environmentID,
+				})
+			}
+			smallVariants := make([]unleash.VariantSchema, len(largeVariants))
+
+			// It is very hard to do multiple add patching requests since there should be at least 1 variant with variable type.
+			// We then overwrite the whole variants and patch the large ones later. This surely causes bad payload or override values during update.
+			for i, variant := range largeVariants {
+				tooLarge := false
+				smallVariant := variant
+				if smallVariant.Payload != nil && len(smallVariant.Payload.Value) > 100000 {
+					tooLarge = true
+					smallVariant.Payload = nil
+				}
+				if smallVariant.Overrides != nil {
+					for _, override := range *smallVariant.Overrides {
+						if len(override.Values) > 100 {
+							tooLarge = true
+							smallVariant.Overrides = nil
+							break
+						}
+					}
+				}
+				if tooLarge {
+					patchPath := fmt.Sprintf("/%d", i)
+					patches = append(patches, unleash.PatchSchema{
+						Op:    "replace",
+						Path:  patchPath,
+						From:  &patchPath,
+						Value: toPatchValue(variant),
+					})
+				}
+
+				smallVariants[i] = smallVariant
+			}
+
+			resp, err := r.client.OverwriteFeatureVariantsOnEnvironmentsWithResponse(ctx, projectID, featureName, unleash.OverwriteFeatureVariantsOnEnvironmentsJSONRequestBody{
+				Environments: &[]string{environmentID},
+				Variants:     &smallVariants,
+			})
+			if err != nil {
+				return err
+			}
+			if resp.StatusCode() > 299 {
+				return fmt.Errorf("failed to overwrite small variants for %s %s %s with status %d %s", projectID, featureName, environmentID, resp.StatusCode(), string(resp.Body))
+			}
+			break
+		}
+	case variantDiffModeRemoveOnly:
+		{
+			for _, variant := range diff.ToRemove {
+				patchPath := fmt.Sprintf("/%d", variant.Index)
+				patches = append(patches, unleash.PatchSchema{
+					Op:   "remove",
+					Path: patchPath,
+					From: &patchPath,
+				})
+			}
+			break
+		}
+	case variantDiffModeReplaceOnly:
+		{
+			for _, variant := range diff.ToReplace {
+				// We can improve this for more efficient patching by checking which properties are changed and specify the path to patch.
+				// For example, the change may just want to add a new overriding item to large number of existing items.
+				patchPath := fmt.Sprintf("/%d", variant.Index)
+				variantBody, err := toVariantBody(variant.Variant)
+				if err != nil {
+					return err
+				}
+				patches = append(patches, unleash.PatchSchema{
+					Op:    "replace",
+					Path:  patchPath,
+					From:  &patchPath,
+					Value: toPatchValue(variantBody),
+				})
+			}
+			break
+		}
 	}
 
-	return variantModelByName
+	for _, patch := range patches {
+		tflog.Debug(ctx, "Patching variant", map[string]interface{}{
+			"projectID":     projectID,
+			"featureName":   featureName,
+			"environmentID": environmentID,
+			"body":          patch,
+		})
+		resp, err := r.client.PatchEnvironmentsFeatureVariantsWithResponse(ctx, projectID, featureName, environmentID, unleash.PatchEnvironmentsFeatureVariantsJSONRequestBody{patch})
+		if err != nil {
+			return err
+		}
+		if resp.StatusCode() > 299 {
+			return fmt.Errorf("failed to patch variant for %s %s %s with status %d %s", projectID, featureName, environmentID, resp.StatusCode(), string(resp.Body))
+		}
+	}
+
+	return nil
+}
+
+func toPatchValue(body unleash.VariantSchema) *interface{} {
+	var value interface{} = body
+
+	return &value
 }
 
 func (r *FeatureResource) updateEnvironmentStatus(ctx context.Context, projectID string, featureName string, environmentID string, environment EnvironmentModel, existingEnv EnvironmentModel) (EnvironmentModel, error) {
@@ -580,7 +689,6 @@ func (r *FeatureResource) updateEnvironmentStatus(ctx context.Context, projectID
 func (r *FeatureResource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data FeatureResourceModel
 
-	// Read Terraform prior state data into the model
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	if resp.Diagnostics.HasError() {
@@ -605,11 +713,8 @@ func (r *FeatureResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	// Write logs using the tflog package
-	// Documentation: https://terraform.io/plugin/log
 	tflog.Trace(ctx, "read resource")
 
-	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -624,7 +729,6 @@ func (r *FeatureResource) Update(ctx context.Context, req resource.UpdateRequest
 	var data FeatureResourceModel
 	var existingData FeatureResourceModel
 
-	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &existingData)...)
 
@@ -656,7 +760,6 @@ func (r *FeatureResource) Update(ctx context.Context, req resource.UpdateRequest
 		resp.Diagnostics.AddError("failed to update environment", err.Error())
 	}
 
-	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -671,20 +774,11 @@ func toFeatureBody(data FeatureResourceModel) unleash.UpdateFeatureJSONRequestBo
 func (r *FeatureResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data FeatureResourceModel
 
-	// Read Terraform prior state data into the model
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
-
-	// If applicable, this is a great opportunity to initialize any necessary
-	// provider unleash data and make a call using it.
-	// httpResp, err := r.unleash.Do(httpReq)
-	// if err != nil {
-	//     resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete example, got error: %s", err))
-	//     return
-	// }
 
 	data.ID = types.StringValue(resolveID(data))
 
