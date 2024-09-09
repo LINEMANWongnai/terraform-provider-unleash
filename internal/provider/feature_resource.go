@@ -267,7 +267,7 @@ func (r *FeatureResource) updateStrategy(ctx context.Context, projectID string, 
 			"projectID":     projectID,
 			"featureName":   featureName,
 			"environmentID": environmentID,
-			"strategy":      strategy})
+			"body":          body})
 		resp, err := r.client.UpdateFeatureStrategyWithResponse(ctx, projectID, featureName, environmentID, existingStrategy.Id.ValueString(), body)
 		if err != nil {
 			return err
@@ -333,61 +333,55 @@ func toUpdateStrategyBody(strategy StrategyModel) (unleash.UpdateFeatureStrategy
 	if body.Disabled == nil {
 		body.Disabled = ptr.ToPtr(false)
 	}
-	if len(strategy.Parameters) > 0 {
-		parameters := make(unleash.ParametersSchema)
-		for parameterK, parameterV := range strategy.Parameters {
-			parameters[parameterK] = parameterV.ValueString()
-		}
-		body.Parameters = &parameters
+	parameters := make(unleash.ParametersSchema)
+	for parameterK, parameterV := range strategy.Parameters {
+		parameters[parameterK] = parameterV.ValueString()
 	}
-	if len(strategy.Constraints) > 0 {
-		constraints := make([]unleash.ConstraintSchema, 0, len(strategy.Constraints))
-		for _, constraint := range strategy.Constraints {
-			constraintBody := unleash.ConstraintSchema{
-				CaseInsensitive: constraint.CaseInsensitive.ValueBoolPointer(),
-				ContextName:     constraint.ContextName.ValueString(),
-				Inverted:        constraint.Inverted.ValueBoolPointer(),
-				Operator:        unleash.ConstraintSchemaOperator(constraint.Operator.ValueString()),
+	body.Parameters = &parameters
+	constraints := make([]unleash.ConstraintSchema, len(strategy.Constraints))
+	for i, constraint := range strategy.Constraints {
+		constraintBody := unleash.ConstraintSchema{
+			CaseInsensitive: constraint.CaseInsensitive.ValueBoolPointer(),
+			ContextName:     constraint.ContextName.ValueString(),
+			Inverted:        constraint.Inverted.ValueBoolPointer(),
+			Operator:        unleash.ConstraintSchemaOperator(constraint.Operator.ValueString()),
+		}
+		if !constraint.JsonValues.IsNull() {
+			values, err := toStringValues(constraint.JsonValues.ValueString())
+			if err != nil {
+				return body, err
 			}
-			if !constraint.JsonValues.IsNull() {
-				values, err := toStringValues(constraint.JsonValues.ValueString())
-				if err != nil {
-					return body, err
-				}
-				if len(values) > 0 {
-					constraintBody.Values = &values
-				}
+			if len(values) > 0 {
+				constraintBody.Values = &values
 			}
+		}
 
-			constraints = append(constraints, constraintBody)
-		}
-		body.Constraints = &constraints
+		constraints[i] = constraintBody
 	}
-	if len(strategy.Variants) > 0 {
-		variants := make([]unleash.CreateStrategyVariantSchema, 0, len(strategy.Variants))
-		for _, variant := range strategy.Variants {
-			variantBody := unleash.CreateStrategyVariantSchema{
-				Name:       variant.Name.ValueString(),
-				Stickiness: variant.Stickiness.ValueString(),
-				WeightType: unleash.CreateStrategyVariantSchemaWeightType(variant.WeightType.ValueString()),
+	body.Constraints = &constraints
+	variants := make([]unleash.CreateStrategyVariantSchema, len(strategy.Variants))
+	for i, variant := range strategy.Variants {
+		variantBody := unleash.CreateStrategyVariantSchema{
+			Name:       variant.Name.ValueString(),
+			Stickiness: variant.Stickiness.ValueString(),
+			WeightType: unleash.CreateStrategyVariantSchemaWeightType(variant.WeightType.ValueString()),
+		}
+		if variantBody.WeightType == unleash.CreateStrategyVariantSchemaWeightTypeFix {
+			variantBody.Weight = int(variant.Weight.ValueInt64())
+		}
+		if !variant.PayloadType.IsNull() && !variant.Payload.IsNull() {
+			variantBody.Payload = &struct {
+				Type  unleash.CreateStrategyVariantSchemaPayloadType `json:"type"`
+				Value string                                         `json:"value"`
+			}{
+				Type:  unleash.CreateStrategyVariantSchemaPayloadType(variant.PayloadType.ValueString()),
+				Value: variant.Payload.ValueString(),
 			}
-			if variantBody.WeightType == unleash.CreateStrategyVariantSchemaWeightTypeFix {
-				variantBody.Weight = int(variant.Weight.ValueInt64())
-			}
-			if !variant.PayloadType.IsNull() && !variant.Payload.IsNull() {
-				variantBody.Payload = &struct {
-					Type  unleash.CreateStrategyVariantSchemaPayloadType `json:"type"`
-					Value string                                         `json:"value"`
-				}{
-					Type:  unleash.CreateStrategyVariantSchemaPayloadType(variant.PayloadType.ValueString()),
-					Value: variant.Payload.ValueString(),
-				}
-			}
+		}
 
-			variants = append(variants, variantBody)
-		}
-		body.Variants = &variants
+		variants[i] = variantBody
 	}
+	body.Variants = &variants
 
 	return body, nil
 }
@@ -505,25 +499,23 @@ func toVariantBody(variant VariantModel) (unleash.VariantSchema, error) {
 			variantBody.Weight = variant.Weight.ValueFloat32()
 		}
 	}
-	if len(variant.Overrides) > 0 {
-		overrides := make([]unleash.OverrideSchema, len(variant.Overrides))
-		for i, override := range variant.Overrides {
-			overrideBody := unleash.OverrideSchema{
-				ContextName: override.ContextName.ValueString(),
-			}
-			if !override.JsonValues.IsNull() && len(override.JsonValues.ValueString()) > 0 {
-				values, err := toStringValues(override.JsonValues.ValueString())
-				if err != nil {
-					return variantBody, err
-				}
-				if len(values) > 0 {
-					overrideBody.Values = values
-				}
-			}
-			overrides[i] = overrideBody
+	overrides := make([]unleash.OverrideSchema, len(variant.Overrides))
+	for i, override := range variant.Overrides {
+		overrideBody := unleash.OverrideSchema{
+			ContextName: override.ContextName.ValueString(),
 		}
-		variantBody.Overrides = &overrides
+		if !override.JsonValues.IsNull() && len(override.JsonValues.ValueString()) > 0 {
+			values, err := toStringValues(override.JsonValues.ValueString())
+			if err != nil {
+				return variantBody, err
+			}
+			if len(values) > 0 {
+				overrideBody.Values = values
+			}
+		}
+		overrides[i] = overrideBody
 	}
+	variantBody.Overrides = &overrides
 	return variantBody, nil
 }
 
@@ -766,11 +758,19 @@ func (r *FeatureResource) Update(ctx context.Context, req resource.UpdateRequest
 }
 
 func toFeatureBody(data FeatureResourceModel) unleash.UpdateFeatureJSONRequestBody {
-	return unleash.UpdateFeatureJSONRequestBody{
+	body := unleash.UpdateFeatureJSONRequestBody{
 		Type:           data.Type.ValueStringPointer(),
 		Description:    data.Description.ValueStringPointer(),
 		ImpressionData: data.ImpressionData.ValueBoolPointer(),
 	}
+	if body.Description == nil {
+		body.Description = ptr.ToPtr("")
+	}
+	if body.ImpressionData == nil {
+		body.ImpressionData = ptr.ToPtr(false)
+	}
+
+	return body
 }
 
 func (r *FeatureResource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
