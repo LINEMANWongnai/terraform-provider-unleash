@@ -37,7 +37,7 @@ Project resource
 Required:
 
 - `enabled` (Boolean) Is this environment enabled
-- `strategies` (Attributes Set) Strategies of this feature (see [below for nested schema](#nestedatt--environments--strategies))
+- `strategies` (Attributes List) Strategies of this feature (see [below for nested schema](#nestedatt--environments--strategies))
 
 Optional:
 
@@ -53,7 +53,7 @@ Required:
 
 Optional:
 
-- `constraints` (Attributes Set) Constraints of this strategy (see [below for nested schema](#nestedatt--environments--strategies--constraints))
+- `constraints` (Attributes List) Constraints of this strategy (see [below for nested schema](#nestedatt--environments--strategies--constraints))
 - `parameters` (Map of String) Parameters of this strategy
 - `segments` (Set of Number) Segment IDs of this strategy
 - `sort_order` (Number) Sort order
@@ -69,14 +69,14 @@ Read-Only:
 
 Required:
 
+- `context_name` (String) Context name
+- `operator` (String) Operator
 - `values_json` (String) An array of string values encoded in JSON. This need to be JSON to avoid performance issue with large number of values.
 
 Optional:
 
 - `case_insensitive` (Boolean) Case insensitive flag
-- `context_name` (String) Context name
 - `inverted` (Boolean) Inverted flag
-- `operator` (String) Operator
 
 
 <a id="nestedatt--environments--strategies--variants"></a>
@@ -85,12 +85,12 @@ Optional:
 Required:
 
 - `name` (String) Name of this variant
+- `stickiness` (String) Stickiness
 
 Optional:
 
 - `payload` (String) Payload value
 - `payload_type` (String) Payload type
-- `stickiness` (String) Stickiness
 - `weight` (Number) Weight (1 - 1000). This is required only if weight_type is fix.
 - `weight_type` (String) Weight type (fix, variable)
 
@@ -102,15 +102,15 @@ Optional:
 Required:
 
 - `name` (String) Name of this variant
+- `weight_type` (String) Weight type (fix, variable)
 
 Optional:
 
-- `overrides` (Attributes Set) Overrides assigning specific variants to specific users. The weighting system automatically assigns users to specific groups for you, but any overrides in this list will take precedence. (see [below for nested schema](#nestedatt--environments--variants--overrides))
+- `overrides` (Attributes List) Overrides assigning specific variants to specific users. The weighting system automatically assigns users to specific groups for you, but any overrides in this list will take precedence. (see [below for nested schema](#nestedatt--environments--variants--overrides))
 - `payload` (String) Payload value
 - `payload_type` (String) Payload type
 - `stickiness` (String) Stickiness
 - `weight` (Number) Weight (1 - 1000). This is required only if weight_type is fix.
-- `weight_type` (String) Weight type (fix, variable)
 
 <a id="nestedatt--environments--variants--overrides"></a>
 ### Nested Schema for `environments.variants.overrides`

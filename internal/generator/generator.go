@@ -127,20 +127,20 @@ func toStrategies(featureName string, strategies []unleash.FeatureStrategySchema
 		}
 		attrs, err := toStrategyAttributes(defaultStrategy)
 		if err != nil {
-			return cty.SetVal([]cty.Value{cty.ObjectVal(attrs)}), err
+			return cty.ListVal([]cty.Value{cty.ObjectVal(attrs)}), err
 		}
 
-		return cty.SetVal([]cty.Value{cty.ObjectVal(attrs)}), nil
+		return cty.ListVal([]cty.Value{cty.ObjectVal(attrs)}), nil
 	}
 	strategyValues := make([]cty.Value, len(strategies))
 	for i, strategy := range strategies {
 		attrs, err := toStrategyAttributes(strategy)
 		if err != nil {
-			return cty.SetVal([]cty.Value{cty.ObjectVal(attrs)}), err
+			return cty.ListVal([]cty.Value{cty.ObjectVal(attrs)}), err
 		}
 		strategyValues[i] = cty.ObjectVal(attrs)
 	}
-	return cty.SetVal(strategyValues), nil
+	return cty.ListVal(strategyValues), nil
 }
 
 func toStrategyAttributes(strategy unleash.FeatureStrategySchema) (map[string]cty.Value, error) {
@@ -207,7 +207,7 @@ func toVariants(variants []unleash.VariantSchema) (cty.Value, error) {
 
 func toVariantOverrides(overrides *[]unleash.OverrideSchema) (cty.Value, error) {
 	if overrides == nil || len(*overrides) == 0 {
-		return cty.NullVal(cty.Set(variantOverrideType)), nil
+		return cty.NullVal(cty.List(variantOverrideType)), nil
 	}
 	overrideValues := make([]cty.Value, len(*overrides))
 	for i, override := range *overrides {
@@ -216,12 +216,12 @@ func toVariantOverrides(overrides *[]unleash.OverrideSchema) (cty.Value, error) 
 		}
 		values, err := toVariantOverrideValues(override.Values)
 		if err != nil {
-			return cty.NullVal(cty.Set(variantOverrideType)), err
+			return cty.NullVal(cty.List(variantOverrideType)), err
 		}
 		attributes["values_json"] = values
 		overrideValues[i] = cty.ObjectVal(attributes)
 	}
-	return cty.SetVal(overrideValues), nil
+	return cty.ListVal(overrideValues), nil
 }
 
 func toVariantOverrideValues(values []string) (cty.Value, error) {
@@ -237,7 +237,7 @@ func toVariantOverrideValues(values []string) (cty.Value, error) {
 
 func toConstraints(constraints *[]unleash.ConstraintSchema) (cty.Value, error) {
 	if constraints == nil || len(*constraints) == 0 {
-		return cty.NullVal(cty.Set(constraintType)), nil
+		return cty.NullVal(cty.List(constraintType)), nil
 	}
 	constraintValues := make([]cty.Value, 0, len(*constraints))
 	for _, constraint := range *constraints {
@@ -255,13 +255,13 @@ func toConstraints(constraints *[]unleash.ConstraintSchema) (cty.Value, error) {
 		}
 		values, err := toConstraintValues(constraint.Value, constraint.Values)
 		if err != nil {
-			return cty.NullVal(cty.Set(constraintType)), err
+			return cty.NullVal(cty.List(constraintType)), err
 		}
 		attributes["values_json"] = values
 
 		constraintValues = append(constraintValues, cty.ObjectVal(attributes))
 	}
-	return cty.SetVal(constraintValues), nil
+	return cty.ListVal(constraintValues), nil
 }
 
 func toConstraintValues(value *string, values *[]string) (cty.Value, error) {
@@ -295,13 +295,13 @@ func toParameters(parameters *unleash.ParametersSchema) cty.Value {
 
 func toSegments(segments *[]float32) cty.Value {
 	if segments == nil || len(*segments) == 0 {
-		return cty.NullVal(cty.List(cty.Number))
+		return cty.NullVal(cty.Set(cty.Number))
 	}
 	segmentValues := make([]cty.Value, 0, len(*segments))
 	for _, segment := range *segments {
 		segmentValues = append(segmentValues, cty.NumberFloatVal(float64(segment)))
 	}
-	return cty.ListVal(segmentValues)
+	return cty.SetVal(segmentValues)
 }
 
 func toStrategyVariants(variants *[]unleash.StrategyVariantSchema) cty.Value {
