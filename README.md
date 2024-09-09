@@ -14,7 +14,7 @@ terraform {
   required_providers {
     unleash = {
       source  = "LINEMANWongnai/unleash"
-      version = "1.2.0"
+      version = "1.3.2"
     }
   }
 }

@@ -1,6 +1,8 @@
 package provider
 
-import "github.com/hashicorp/terraform-plugin-framework/types"
+import (
+	"github.com/hashicorp/terraform-plugin-framework/types"
+)
 
 // ensureFeatureModelNullAndEmptyConsistency changes the given featureModel's properties which are null to matched null or empty properties of featureModelBefore.
 //
@@ -39,14 +41,21 @@ func ensureEnvironmentNullAndEmptyConsistency(env *EnvironmentModel, envBefore E
 		}
 	}
 	if len(env.Strategies) == len(envBefore.Strategies) {
-		strategyBeforeByName := toStrategyModelByIDName(envBefore.Strategies)
-		for i := range env.Strategies {
-			strategy := &env.Strategies[i]
-			strategyBefore, ok := strategyBeforeByName[toStrategyModelKey(*strategy)]
+		allMatched := true
+		strategyByName := toStrategyModelByIDName(env.Strategies)
+		strategies := make([]StrategyModel, len(env.Strategies))
+		for i, strategyBefore := range envBefore.Strategies {
+			strategy, ok := strategyByName[toStrategyModelKey(strategyBefore)]
 			if !ok {
+				allMatched = false
 				break
 			}
-			ensureStrategyNullAndEmptyConsistency(strategy, strategyBefore)
+			ensureStrategyNullAndEmptyConsistency(&strategy, strategyBefore)
+			// Need to preserve order...
+			strategies[i] = strategy
+		}
+		if allMatched {
+			env.Strategies = strategies
 		}
 	}
 }
