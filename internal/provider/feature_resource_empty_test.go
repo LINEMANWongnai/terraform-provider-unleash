@@ -368,6 +368,112 @@ resource "unleash_feature" "nullandempty" {
 					resource.TestCheckResourceAttr("unleash_feature.nullandempty", "type", "release"),
 				),
 			},
+			//	Strategies' order preservation
+			{
+				Config: providerConf + `
+resource "unleash_feature" "nullandempty" {
+	project = "default"
+	name = "test-feature.nullandempty"
+	type = "release"
+	environments = {
+		production = {
+			enabled = false
+			strategies = [
+				{
+					name = "flexibleRollout"
+					disabled = false
+					parameters = {
+						"rollout" = "100"
+						"stickiness" = "session"
+						"groupId" = "test-feature.nullandempty"
+					}
+					constraints = [
+						{
+							case_insensitive = true
+							context_name = "userId"
+							operator = "IN"
+							inverted = true
+							values_json = "[\"uid1\",\"uid2\"]"
+						},
+						{
+							context_name = "deviceId"
+							operator = "IN"
+							values_json = jsonencode(["iphone"])
+						}
+					]
+					variants = [
+						{
+							name = "strategy_variant1"
+							payload = "payload1"
+							payload_type = "string"
+							weight_type = "variable"
+							stickiness = "default"
+						},
+						{
+							name = "strategy_variant2"
+							weight_type = "variable"
+							stickiness = "session"
+						},
+					]
+				},
+			]
+			variants = [
+				{
+					name = "variant1"
+					payload = "payload1"
+					payload_type = "string"
+					weight = 5
+					weight_type = "fix"
+					stickiness = "default"
+					overrides = [
+						{
+							context_name = "userId"
+							values_json = jsonencode(["uid1","uid2"])
+						},
+						{
+							context_name = "device"
+							values_json = jsonencode(["iphone"])
+						},
+						{
+							context_name = "nullOrEmpty"
+							values_json = null
+						},
+					]
+				},
+				{
+					name = "variant2" 
+					weight_type = "variable"
+				},
+			]
+		}
+		development = {
+			enabled = false
+			strategies = [
+				{
+					name = "default"
+					disabled = false
+				},
+				{
+					name = "flexibleRollout"
+					disabled = false
+					parameters = {
+						"rollout" = "100"
+						"stickiness" = "default"
+						"groupId" = "test-feature.nullandempty"
+					}
+				},
+			]
+		}
+	}
+}
+`,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("unleash_feature.nullandempty", "id", "default.test-feature.nullandempty"),
+					resource.TestCheckResourceAttr("unleash_feature.nullandempty", "project", "default"),
+					resource.TestCheckResourceAttr("unleash_feature.nullandempty", "name", "test-feature.nullandempty"),
+					resource.TestCheckResourceAttr("unleash_feature.nullandempty", "type", "release"),
+				),
+			},
 			// Delete testing automatically occurs in TestCase
 		},
 	})
