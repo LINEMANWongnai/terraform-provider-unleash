@@ -19,7 +19,7 @@ func init() {
 func createEnvironmentType() cty.Type {
 	return cty.Object(map[string]cty.Type{
 		"enabled":    cty.Bool,
-		"strategies": cty.Set(createStrategyType()),
+		"strategies": cty.List(createStrategyType()),
 		"variants":   cty.List(createVariantType()),
 	})
 }
@@ -32,7 +32,7 @@ func createVariantType() cty.Type {
 		"payload_type": cty.String,
 		"stickiness":   cty.String,
 		"weight":       cty.Number,
-		"overrides":    cty.Set(createVariantOverrideType()),
+		"overrides":    cty.List(createVariantOverrideType()),
 	})
 }
 
@@ -49,7 +49,7 @@ func createStrategyType() cty.Type {
 		"disabled":    cty.Bool,
 		"title":       cty.String,
 		"sort_order":  cty.Number,
-		"constraints": cty.Set(createConstraintType()),
+		"constraints": cty.List(createConstraintType()),
 		"parameters":  cty.Map(cty.String),
 		"segments":    cty.List(cty.Number),
 		"variants":    cty.List(createStrategyVariantType()),

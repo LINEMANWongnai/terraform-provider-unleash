@@ -57,8 +57,8 @@ type StrategyModel struct {
 }
 
 type ConstraintModel struct {
-	CaseInsensitive types.Bool   `tfsdk:"case_insensitive"`
 	ContextName     types.String `tfsdk:"context_name"`
+	CaseInsensitive types.Bool   `tfsdk:"case_insensitive"`
 	Operator        types.String `tfsdk:"operator"`
 	Inverted        types.Bool   `tfsdk:"inverted"`
 	JsonValues      types.String `tfsdk:"values_json"`
@@ -125,7 +125,7 @@ func createEnvironmentResourceSchemaAttrs() map[string]schema.Attribute {
 			},
 			Optional: true,
 		},
-		"strategies": schema.SetNestedAttribute{
+		"strategies": schema.ListNestedAttribute{
 			Description: "Strategies of this feature",
 			NestedObject: schema.NestedAttributeObject{
 				Attributes: createStrategyResourceSchemaAttrs(),
@@ -155,13 +155,13 @@ func createVariantResourceSchemaAttrs() map[string]schema.Attribute {
 		},
 		"weight_type": schema.StringAttribute{
 			Description: "Weight type (fix, variable)",
-			Optional:    true,
+			Required:    true,
 		},
 		"stickiness": schema.StringAttribute{
 			Description: "Stickiness",
 			Optional:    true,
 		},
-		"overrides": schema.SetNestedAttribute{
+		"overrides": schema.ListNestedAttribute{
 			Description: "Overrides assigning specific variants to specific users. The weighting system automatically assigns users to specific groups for you, but any overrides in this list will take precedence.",
 			Optional:    true,
 			NestedObject: schema.NestedAttributeObject{
@@ -209,7 +209,7 @@ func createStrategyResourceSchemaAttrs() map[string]schema.Attribute {
 			Description: "Sort order",
 			Optional:    true,
 		},
-		"constraints": schema.SetNestedAttribute{
+		"constraints": schema.ListNestedAttribute{
 			Description: "Constraints of this strategy",
 			Optional:    true,
 			NestedObject: schema.NestedAttributeObject{
@@ -238,17 +238,17 @@ func createStrategyResourceSchemaAttrs() map[string]schema.Attribute {
 
 func createConstraintResourceSchemaAttrs() map[string]schema.Attribute {
 	return map[string]schema.Attribute{
+		"context_name": schema.StringAttribute{
+			Description: "Context name",
+			Required:    true,
+		},
 		"case_insensitive": schema.BoolAttribute{
 			Description: "Case insensitive flag",
 			Optional:    true,
 		},
-		"context_name": schema.StringAttribute{
-			Description: "Context name",
-			Optional:    true,
-		},
 		"operator": schema.StringAttribute{
 			Description: "Operator",
-			Optional:    true,
+			Required:    true,
 		},
 		"inverted": schema.BoolAttribute{
 			Description: "Inverted flag",
@@ -285,7 +285,7 @@ func createStrategyVariantResourceSchemaAttrs() map[string]schema.Attribute {
 		},
 		"stickiness": schema.StringAttribute{
 			Description: "Stickiness",
-			Optional:    true,
+			Required:    true,
 		},
 	}
 }
@@ -352,7 +352,7 @@ func toVariantModel(variant unleash.VariantSchema) (VariantModel, error) {
 	if variant.WeightType != nil {
 		variantModel.WeightType = types.StringValue(string(*variant.WeightType))
 	}
-	if variant.Stickiness != nil {
+	if variant.Stickiness != nil && *variant.Stickiness != "" {
 		variantModel.Stickiness = types.StringValue(*variant.Stickiness)
 	}
 	if variant.WeightType != nil && *variant.WeightType != unleash.Variable {
@@ -405,7 +405,7 @@ func toStrategyModel(strategy unleash.FeatureStrategySchema) (StrategyModel, err
 	if strategy.SortOrder != nil && *strategy.SortOrder != 0 {
 		strategyModel.SortOrder = types.Float32Value(*strategy.SortOrder)
 	}
-	if strategy.Constraints != nil {
+	if strategy.Constraints != nil && len(*strategy.Constraints) > 0 {
 		for _, constraint := range *strategy.Constraints {
 			constraintModel, err := toConstraintModel(constraint)
 			if err != nil {

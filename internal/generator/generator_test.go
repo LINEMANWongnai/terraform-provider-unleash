@@ -273,30 +273,6 @@ func TestGenerate(t *testing.T) {
       enabled = true
       strategies = [{
         constraints = [{
-          case_insensitive = false
-          context_name     = "userId"
-          inverted         = false
-          operator         = "IN"
-          values_json      = "[\"9\",\"10\"]"
-        }]
-        disabled = false
-        name     = "myRolloutStrategy2"
-        parameters = {
-          groupId = "test.feature.full"
-        }
-        segments   = null
-        sort_order = null
-        title      = "My Rollout Strategy 2"
-        variants = [{
-          name         = "variant1"
-          payload      = "variant1 value"
-          payload_type = "string"
-          stickiness   = "session"
-          weight       = null
-          weight_type  = "variable"
-        }]
-        }, {
-        constraints = [{
           case_insensitive = true
           context_name     = "userId"
           inverted         = true
@@ -332,15 +308,39 @@ func TestGenerate(t *testing.T) {
           weight       = null
           weight_type  = "variable"
         }]
+        }, {
+        constraints = [{
+          case_insensitive = false
+          context_name     = "userId"
+          inverted         = false
+          operator         = "IN"
+          values_json      = "[\"9\",\"10\"]"
+        }]
+        disabled = false
+        name     = "myRolloutStrategy2"
+        parameters = {
+          groupId = "test.feature.full"
+        }
+        segments   = null
+        sort_order = null
+        title      = "My Rollout Strategy 2"
+        variants = [{
+          name         = "variant1"
+          payload      = "variant1 value"
+          payload_type = "string"
+          stickiness   = "session"
+          weight       = null
+          weight_type  = "variable"
+        }]
       }]
       variants = [{
         name = "dev variant1"
         overrides = [{
-          context_name = "UA"
-          values_json  = "[\"x\",\"y\"]"
-          }, {
           context_name = "userID"
           values_json  = "[\"1\",\"2\",\"3\"]"
+          }, {
+          context_name = "UA"
+          values_json  = "[\"x\",\"y\"]"
         }]
         payload      = "{value}"
         payload_type = "json"

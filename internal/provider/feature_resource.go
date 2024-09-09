@@ -511,7 +511,7 @@ func toVariantBody(variant VariantModel) (unleash.VariantSchema, error) {
 			overrideBody := unleash.OverrideSchema{
 				ContextName: override.ContextName.ValueString(),
 			}
-			if !override.JsonValues.IsNull() {
+			if !override.JsonValues.IsNull() && len(override.JsonValues.ValueString()) > 0 {
 				values, err := toStringValues(override.JsonValues.ValueString())
 				if err != nil {
 					return variantBody, err
@@ -707,11 +707,13 @@ func (r *FeatureResource) Read(ctx context.Context, req resource.ReadRequest, re
 		return
 	}
 
-	data.FeatureModel, err = toFeatureModel(fetchedFeature)
+	featureModel, err := toFeatureModel(fetchedFeature)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to convert feature", err.Error())
 		return
 	}
+	ensureFeatureModelNullAndEmptyConsistency(&featureModel, data.FeatureModel)
+	data.FeatureModel = featureModel
 
 	tflog.Trace(ctx, "read resource")
 
