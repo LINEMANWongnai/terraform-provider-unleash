@@ -29,7 +29,7 @@ Project resource
 
 ### Read-Only
 
-- `id` (String) ID which is a combination of project and feature name
+- `id` (String) ID which is a combination of project , `.` and feature name. e.g. default.my-feature
 
 <a id="nestedatt--environments"></a>
 ### Nested Schema for `environments`

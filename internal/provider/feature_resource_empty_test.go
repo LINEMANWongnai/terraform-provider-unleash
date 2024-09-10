@@ -9,10 +9,9 @@ import (
 )
 
 func TestAccFeatureResourceNullAndEmpty(t *testing.T) {
-	providerConf := getProviderConf(inmem.CreateTestServer().Start(t))
+	providerConf := getProviderConf(inmem.CreateTestServer().Start(t), "")
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing

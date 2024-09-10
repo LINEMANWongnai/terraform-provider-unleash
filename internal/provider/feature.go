@@ -76,7 +76,7 @@ type StrategyVariantModel struct {
 func createFeatureResourceSchemaAttr() map[string]schema.Attribute {
 	return map[string]schema.Attribute{
 		"id": schema.StringAttribute{
-			Description: "ID which is a combination of project and feature name",
+			Description: "ID which is a combination of project , `.` and feature name. e.g. default.my-feature",
 			Computed:    true,
 			PlanModifiers: []planmodifier.String{
 				createFeatureIDPlanModifier("project", "name"),
