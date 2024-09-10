@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"regexp"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/function"
@@ -27,8 +28,14 @@ type UnleashProvider struct {
 
 // UnleashProviderModel describes the provider data model.
 type UnleashProviderModel struct {
-	BaseURL            types.String `tfsdk:"base_url"`
-	AuthorizationToken types.String `tfsdk:"authorization"`
+	BaseURL                  types.String `tfsdk:"base_url"`
+	AuthorizationToken       types.String `tfsdk:"authorization"`
+	StrategyTitleIgnoreRegEx types.String `tfsdk:"strategy_title_ignore_regexp"`
+}
+
+type UnleashProviderData struct {
+	Client                   unleash.ClientWithResponsesInterface
+	StrategyTitleIgnoreRegEx *regexp.Regexp
 }
 
 func (p *UnleashProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -48,6 +55,10 @@ func (p *UnleashProvider) Schema(ctx context.Context, req provider.SchemaRequest
 				Optional:            true,
 				Sensitive:           true,
 			},
+			"strategy_title_ignore_regexp": schema.StringAttribute{
+				MarkdownDescription: "Regular expression to ignore strategies by title. The matched strategies will not be managed by this provider.",
+				Optional:            true,
+			},
 		},
 	}
 }
@@ -63,15 +74,23 @@ func (p *UnleashProvider) Configure(ctx context.Context, req provider.ConfigureR
 
 	// Configuration values are now available.
 	// if data.Endpoint.IsNull() { /* ... */ }
-
-	c, err := unleash.CreateClient(data.BaseURL.ValueString(), data.AuthorizationToken.ValueString())
+	var providerData UnleashProviderData
+	var err error
+	providerData.Client, err = unleash.CreateClient(data.BaseURL.ValueString(), data.AuthorizationToken.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create unleash", err.Error())
 		return
 	}
 
-	resp.DataSourceData = c
-	resp.ResourceData = c
+	if data.StrategyTitleIgnoreRegEx.ValueString() != "" {
+		providerData.StrategyTitleIgnoreRegEx, err = regexp.Compile(data.StrategyTitleIgnoreRegEx.ValueString())
+		if err != nil {
+			resp.Diagnostics.AddError("failed to create unleash", err.Error())
+		}
+	}
+
+	resp.DataSourceData = providerData
+	resp.ResourceData = providerData
 }
 
 func (p *UnleashProvider) Resources(_ context.Context) []func() resource.Resource {

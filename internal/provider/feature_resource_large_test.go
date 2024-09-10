@@ -12,7 +12,7 @@ import (
 )
 
 func TestAccFeatureResourceLarge(t *testing.T) {
-	providerConf := getProviderConf(inmem.CreateTestServer().Start(t))
+	providerConf := getProviderConf(inmem.CreateTestServer().Start(t), "")
 
 	largeConfigFmt := `
 resource "unleash_feature" "large" {
@@ -111,7 +111,6 @@ resource "unleash_feature" "large" {
 	endArray := "]"
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Create and Read testing

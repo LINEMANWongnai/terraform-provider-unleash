@@ -3,7 +3,6 @@ package provider_test
 import (
 	"fmt"
 	"os"
-	"testing"
 
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
@@ -23,14 +22,12 @@ var testAccProtoV6ProviderFactories = map[string]func() (tfprotov6.ProviderServe
 	"unleash": providerserver.NewProtocol6WithError(provider.New("test")()),
 }
 
-func testAccPreCheck(t *testing.T) {
-}
-
-func getProviderConf(port int) string {
+func getProviderConf(port int, strategyIgnoreRegex string) string {
 	return fmt.Sprintf(`
 	provider "unleash" {
 		  base_url = "http://localhost:%d"
 		  authorization	= "*:development.x"
+		  strategy_title_ignore_regexp = "%s"
 	}
-	`, port)
+	`, port, strategyIgnoreRegex)
 }

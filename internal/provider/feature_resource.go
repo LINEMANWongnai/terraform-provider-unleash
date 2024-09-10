@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/google/go-cmp/cmp"
@@ -24,7 +25,7 @@ func NewFeatureResource() resource.Resource {
 }
 
 type FeatureResource struct {
-	client unleash.ClientWithResponsesInterface
+	providerData UnleashProviderData
 }
 
 type FeatureResourceModel struct {
@@ -52,7 +53,7 @@ func (r *FeatureResource) Configure(_ context.Context, req resource.ConfigureReq
 		return
 	}
 
-	c, ok := req.ProviderData.(unleash.ClientWithResponsesInterface)
+	providerData, ok := req.ProviderData.(UnleashProviderData)
 
 	if !ok {
 		resp.Diagnostics.AddError(
@@ -63,7 +64,7 @@ func (r *FeatureResource) Configure(_ context.Context, req resource.ConfigureReq
 		return
 	}
 
-	r.client = c
+	r.providerData = providerData
 }
 
 func (r *FeatureResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -86,7 +87,7 @@ func (r *FeatureResource) Create(ctx context.Context, req resource.CreateRequest
 	}
 
 	tflog.Debug(ctx, "Creating feature", map[string]interface{}{"body": body})
-	createResp, err := r.client.CreateFeatureWithResponse(ctx, data.Project.ValueString(), body)
+	createResp, err := r.providerData.Client.CreateFeatureWithResponse(ctx, data.Project.ValueString(), body)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to create feature "+data.ID.String(), err.Error())
 		return
@@ -155,6 +156,9 @@ func (r *FeatureResource) updateStrategies(ctx context.Context, projectID string
 		}
 	}
 	for i, strategy := range environment.Strategies {
+		if r.shouldIgnoreStrategy(strategy.Title.ValueString()) {
+			return environment, fmt.Errorf("strategy title %s matches ignore regex. This strategy should not be managed by terraform", strategy.Title.ValueString())
+		}
 		key := toStrategyModelKey(strategy)
 		existingStrategy, ok := existingStrategyByKey[key]
 		if ok {
@@ -242,7 +246,7 @@ func (r *FeatureResource) addStrategy(ctx context.Context, projectID string, fea
 		}
 		strategyBody.Variants = &variants
 	}
-	resp, err := r.client.AddFeatureStrategyWithResponse(ctx, projectID, featureName, environmentID, strategyBody)
+	resp, err := r.providerData.Client.AddFeatureStrategyWithResponse(ctx, projectID, featureName, environmentID, strategyBody)
 	if err != nil {
 		return "", err
 	}
@@ -268,7 +272,7 @@ func (r *FeatureResource) updateStrategy(ctx context.Context, projectID string, 
 			"featureName":   featureName,
 			"environmentID": environmentID,
 			"body":          body})
-		resp, err := r.client.UpdateFeatureStrategyWithResponse(ctx, projectID, featureName, environmentID, existingStrategy.Id.ValueString(), body)
+		resp, err := r.providerData.Client.UpdateFeatureStrategyWithResponse(ctx, projectID, featureName, environmentID, existingStrategy.Id.ValueString(), body)
 		if err != nil {
 			return err
 		}
@@ -287,7 +291,7 @@ func (r *FeatureResource) updateStrategy(ctx context.Context, projectID string, 
 			"environmentID": environmentID,
 			"strategy":      strategy,
 			"order":         order})
-		resp, err := r.client.SetStrategySortOrderWithResponse(ctx, projectID, featureName, environmentID, []struct {
+		resp, err := r.providerData.Client.SetStrategySortOrderWithResponse(ctx, projectID, featureName, environmentID, []struct {
 			Id        string  `json:"id"`
 			SortOrder float32 `json:"sortOrder"`
 		}{{
@@ -309,7 +313,7 @@ func (r *FeatureResource) updateStrategy(ctx context.Context, projectID string, 
 			"environmentID": environmentID,
 			"strategy":      strategy.Name.ValueString(),
 			"body":          updateStrategySegmentBody})
-		resp, err := r.client.UpdateFeatureStrategySegmentsWithResponse(ctx, updateStrategySegmentBody)
+		resp, err := r.providerData.Client.UpdateFeatureStrategySegmentsWithResponse(ctx, updateStrategySegmentBody)
 		if err != nil {
 			return err
 		}
@@ -406,7 +410,7 @@ func (r *FeatureResource) deleteStrategy(ctx context.Context, projectID string, 
 		"environmentID": environmentID,
 		"strategy":      strategy,
 	})
-	resp, err := r.client.DeleteFeatureStrategyWithResponse(ctx, projectID, featureName, environmentID, strategy.Id.ValueString())
+	resp, err := r.providerData.Client.DeleteFeatureStrategyWithResponse(ctx, projectID, featureName, environmentID, strategy.Id.ValueString())
 	if err != nil {
 		return err
 	}
@@ -458,7 +462,7 @@ func (r *FeatureResource) updateEnvironmentVariants(ctx context.Context, project
 		"body":          variantsBody,
 	})
 	// try to do everything in one go first. this however may face a problem when the body is too large...
-	resp, err := r.client.OverwriteFeatureVariantsOnEnvironmentsWithResponse(ctx, projectID, featureName, variantsBody)
+	resp, err := r.providerData.Client.OverwriteFeatureVariantsOnEnvironmentsWithResponse(ctx, projectID, featureName, variantsBody)
 	if err != nil {
 		return environment, err
 	}
@@ -572,7 +576,7 @@ func (r *FeatureResource) handleTooLargeEnvironmentVariants(ctx context.Context,
 				smallVariants[i] = smallVariant
 			}
 
-			resp, err := r.client.OverwriteFeatureVariantsOnEnvironmentsWithResponse(ctx, projectID, featureName, unleash.OverwriteFeatureVariantsOnEnvironmentsJSONRequestBody{
+			resp, err := r.providerData.Client.OverwriteFeatureVariantsOnEnvironmentsWithResponse(ctx, projectID, featureName, unleash.OverwriteFeatureVariantsOnEnvironmentsJSONRequestBody{
 				Environments: &[]string{environmentID},
 				Variants:     &smallVariants,
 			})
@@ -624,7 +628,7 @@ func (r *FeatureResource) handleTooLargeEnvironmentVariants(ctx context.Context,
 			"environmentID": environmentID,
 			"body":          patch,
 		})
-		resp, err := r.client.PatchEnvironmentsFeatureVariantsWithResponse(ctx, projectID, featureName, environmentID, unleash.PatchEnvironmentsFeatureVariantsJSONRequestBody{patch})
+		resp, err := r.providerData.Client.PatchEnvironmentsFeatureVariantsWithResponse(ctx, projectID, featureName, environmentID, unleash.PatchEnvironmentsFeatureVariantsJSONRequestBody{patch})
 		if err != nil {
 			return err
 		}
@@ -653,7 +657,7 @@ func (r *FeatureResource) updateEnvironmentStatus(ctx context.Context, projectID
 			"featureName":   featureName,
 			"environmentID": environmentID,
 		})
-		resp, err := r.client.ToggleFeatureEnvironmentOnWithResponse(ctx, projectID, featureName, environmentID)
+		resp, err := r.providerData.Client.ToggleFeatureEnvironmentOnWithResponse(ctx, projectID, featureName, environmentID)
 		if err != nil {
 			return environment, err
 		}
@@ -666,7 +670,7 @@ func (r *FeatureResource) updateEnvironmentStatus(ctx context.Context, projectID
 			"featureName":   featureName,
 			"environmentID": environmentID,
 		})
-		resp, err := r.client.ToggleFeatureEnvironmentOffWithResponse(ctx, projectID, featureName, environmentID)
+		resp, err := r.providerData.Client.ToggleFeatureEnvironmentOffWithResponse(ctx, projectID, featureName, environmentID)
 		if err != nil {
 			return environment, err
 		}
@@ -689,7 +693,7 @@ func (r *FeatureResource) Read(ctx context.Context, req resource.ReadRequest, re
 
 	projectID, featureName := extractProjectAndFeatureName(data)
 
-	fetchedFeature, found, err := unleash.GetFeature(ctx, r.client, projectID, featureName)
+	fetchedFeature, found, err := unleash.GetFeature(ctx, r.providerData.Client, projectID, featureName)
 	if err != nil {
 		resp.Diagnostics.AddError("failed to get feature", err.Error())
 		return
@@ -698,6 +702,7 @@ func (r *FeatureResource) Read(ctx context.Context, req resource.ReadRequest, re
 		resp.State.RemoveResource(ctx)
 		return
 	}
+	removeIgnoredStrategies(ctx, &fetchedFeature, r.providerData.StrategyTitleIgnoreRegEx)
 
 	featureModel, err := toFeatureModel(fetchedFeature)
 	if err != nil {
@@ -738,7 +743,7 @@ func (r *FeatureResource) Update(ctx context.Context, req resource.UpdateRequest
 			"featureName": data.Name.ValueString(),
 			"body":        featureBody,
 		})
-		updateResp, err := r.client.UpdateFeatureWithResponse(ctx, data.Project.ValueString(), data.Name.ValueString(), featureBody)
+		updateResp, err := r.providerData.Client.UpdateFeatureWithResponse(ctx, data.Project.ValueString(), data.Name.ValueString(), featureBody)
 		if err != nil {
 			resp.Diagnostics.AddError("failed to update feature "+data.ID.String(), err.Error())
 			return
@@ -785,7 +790,7 @@ func (r *FeatureResource) Delete(ctx context.Context, req resource.DeleteRequest
 	data.ID = types.StringValue(resolveID(data))
 
 	tflog.Debug(ctx, "Archiving feature", map[string]interface{}{"projectID": data.Project.ValueString(), "featureName": data.Name.ValueString()})
-	archiveResp, err := r.client.ArchiveFeatureWithResponse(ctx, data.Project.ValueString(), data.Name.ValueString())
+	archiveResp, err := r.providerData.Client.ArchiveFeatureWithResponse(ctx, data.Project.ValueString(), data.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("failed to archive feature "+data.ID.String(), err.Error())
 		return
@@ -795,7 +800,7 @@ func (r *FeatureResource) Delete(ctx context.Context, req resource.DeleteRequest
 		return
 	}
 	tflog.Debug(ctx, "Deleting feature", map[string]interface{}{"projectID": data.Project.ValueString(), "featureName": data.Name.ValueString()})
-	deleteResp, err := r.client.DeleteFeatureWithResponse(ctx, data.Name.ValueString())
+	deleteResp, err := r.providerData.Client.DeleteFeatureWithResponse(ctx, data.Name.ValueString())
 	if err != nil {
 		resp.Diagnostics.AddError("failed to delete feature "+data.ID.String(), err.Error())
 		return
@@ -808,4 +813,37 @@ func (r *FeatureResource) Delete(ctx context.Context, req resource.DeleteRequest
 
 func (r *FeatureResource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
+}
+
+func (r *FeatureResource) shouldIgnoreStrategy(title string) bool {
+	if r.providerData.StrategyTitleIgnoreRegEx == nil {
+		return false
+	}
+	return r.providerData.StrategyTitleIgnoreRegEx.MatchString(title)
+}
+
+func removeIgnoredStrategies(ctx context.Context, fetchedFeature *unleash.FetchedFeature, strategyTitleIgnoreRegEx *regexp.Regexp) {
+	if strategyTitleIgnoreRegEx == nil {
+		return
+	}
+	for i := range fetchedFeature.FetchedEnvironments {
+		env := &fetchedFeature.FetchedEnvironments[i]
+		if len(env.FetchedStrategies) == 0 {
+			continue
+		}
+		strategiesWithoutIgnore := make([]unleash.FeatureStrategySchema, 0, len(env.FetchedStrategies))
+		for _, strategy := range env.FetchedStrategies {
+			if strategy.Title != nil && strategyTitleIgnoreRegEx.MatchString(*strategy.Title) {
+				tflog.Info(ctx, "Ignoring strategy", map[string]interface{}{
+					"projectID":     fetchedFeature.FetchedProject,
+					"feature":       fetchedFeature.Feature.Name,
+					"environmentID": env.Environment.Name,
+					"strategy":      strategy,
+				})
+				continue
+			}
+			strategiesWithoutIgnore = append(strategiesWithoutIgnore, strategy)
+		}
+		env.FetchedStrategies = strategiesWithoutIgnore
+	}
 }
