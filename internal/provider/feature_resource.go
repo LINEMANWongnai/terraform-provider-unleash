@@ -202,6 +202,9 @@ func (r *FeatureResource) addStrategy(ctx context.Context, projectID string, fea
 				Inverted:        constraint.Inverted.ValueBoolPointer(),
 				Operator:        unleash.ConstraintSchemaOperator(constraint.Operator.ValueString()),
 			}
+			if !constraint.Value.IsNull() {
+				constraintBody.Value = ptr.ToPtr(constraint.Value.ValueString())
+			}
 			if !constraint.JsonValues.IsNull() {
 				values, err := toStringValues(constraint.JsonValues.ValueString())
 				if err != nil {
@@ -349,6 +352,9 @@ func toUpdateStrategyBody(strategy StrategyModel) (unleash.UpdateFeatureStrategy
 			ContextName:     constraint.ContextName.ValueString(),
 			Inverted:        constraint.Inverted.ValueBoolPointer(),
 			Operator:        unleash.ConstraintSchemaOperator(constraint.Operator.ValueString()),
+		}
+		if !constraint.Value.IsNull() {
+			constraintBody.Value = ptr.ToPtr(constraint.Value.ValueString())
 		}
 		if !constraint.JsonValues.IsNull() {
 			values, err := toStringValues(constraint.JsonValues.ValueString())

@@ -62,6 +62,7 @@ func createConstraintType() cty.Type {
 		"context_name":     cty.String,
 		"operator":         cty.String,
 		"inverted":         cty.Bool,
+		"value":            cty.String,
 		"values_json":      cty.String,
 	})
 }

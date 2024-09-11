@@ -277,13 +277,15 @@ func TestGenerate(t *testing.T) {
           context_name     = "userId"
           inverted         = true
           operator         = "IN"
-          values_json      = "[\"1\",\"3\",\"4\"]"
+          value            = "1"
+          values_json      = "[\"3\",\"4\"]"
           }, {
           case_insensitive = null
           context_name     = "restaurantID"
           inverted         = null
           operator         = "IN"
-          values_json      = "[\"a\"]"
+          value            = "a"
+          values_json      = null
         }]
         disabled = true
         name     = "myRolloutStrategy"
@@ -314,6 +316,7 @@ func TestGenerate(t *testing.T) {
           context_name     = "userId"
           inverted         = false
           operator         = "IN"
+          value            = null
           values_json      = "[\"9\",\"10\"]"
         }]
         disabled = false
@@ -365,6 +368,7 @@ func TestGenerate(t *testing.T) {
           context_name     = "userId"
           inverted         = false
           operator         = "IN"
+          value            = null
           values_json      = null
         }]
         disabled = false
