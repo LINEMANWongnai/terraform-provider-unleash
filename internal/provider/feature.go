@@ -61,6 +61,7 @@ type ConstraintModel struct {
 	CaseInsensitive types.Bool   `tfsdk:"case_insensitive"`
 	Operator        types.String `tfsdk:"operator"`
 	Inverted        types.Bool   `tfsdk:"inverted"`
+	Value           types.String `tfsdk:"value"`
 	JsonValues      types.String `tfsdk:"values_json"`
 }
 
@@ -254,9 +255,13 @@ func createConstraintResourceSchemaAttrs() map[string]schema.Attribute {
 			Description: "Inverted flag",
 			Optional:    true,
 		},
+		"value": schema.StringAttribute{
+			Description: "Value The context value that should be used for constraint evaluation. Use this property instead of `values` for properties that only accept single values.",
+			Optional:    true,
+		},
 		"values_json": schema.StringAttribute{
 			Description: "An array of string values encoded in JSON. This need to be JSON to avoid performance issue with large number of values.",
-			Required:    true,
+			Optional:    true,
 		},
 	}
 }
@@ -445,16 +450,11 @@ func toConstraintModel(constraint unleash.ConstraintSchema) (ConstraintModel, er
 	if constraint.Inverted != nil {
 		constraintModel.Inverted = types.BoolValue(*constraint.Inverted)
 	}
-	var values []string
 	if constraint.Value != nil {
-		values = append(values, *constraint.Value)
+		constraintModel.Value = types.StringValue(*constraint.Value)
 	}
-	if constraint.Values != nil {
-		values = append(values, *constraint.Values...)
-	}
-
-	if len(values) > 0 {
-		b, err := json.Marshal(values)
+	if constraint.Values != nil && len(*constraint.Values) > 0 {
+		b, err := json.Marshal(*constraint.Values)
 		if err != nil {
 			return constraintModel, err
 		}

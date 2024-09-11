@@ -71,12 +71,13 @@ Required:
 
 - `context_name` (String) Context name
 - `operator` (String) Operator
-- `values_json` (String) An array of string values encoded in JSON. This need to be JSON to avoid performance issue with large number of values.
 
 Optional:
 
 - `case_insensitive` (Boolean) Case insensitive flag
 - `inverted` (Boolean) Inverted flag
+- `value` (String) Value The context value that should be used for constraint evaluation. Use this property instead of `values` for properties that only accept single values.
+- `values_json` (String) An array of string values encoded in JSON. This need to be JSON to avoid performance issue with large number of values.
 
 
 <a id="nestedatt--environments--strategies--variants"></a>

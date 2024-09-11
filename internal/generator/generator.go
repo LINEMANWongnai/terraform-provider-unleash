@@ -246,6 +246,7 @@ func toConstraints(constraints *[]unleash.ConstraintSchema) (cty.Value, error) {
 			"context_name":     cty.StringVal(constraint.ContextName),
 			"operator":         cty.StringVal(string(constraint.Operator)),
 			"inverted":         cty.NullVal(cty.Bool),
+			"value":            cty.NullVal(cty.String),
 		}
 		if constraint.CaseInsensitive != nil {
 			attributes["case_insensitive"] = cty.BoolVal(*constraint.CaseInsensitive)
@@ -253,9 +254,12 @@ func toConstraints(constraints *[]unleash.ConstraintSchema) (cty.Value, error) {
 		if constraint.Inverted != nil {
 			attributes["inverted"] = cty.BoolVal(*constraint.Inverted)
 		}
-		values, err := toConstraintValues(constraint.Value, constraint.Values)
+		values, err := toConstraintValues(constraint.Values)
 		if err != nil {
 			return cty.NullVal(cty.List(constraintType)), err
+		}
+		if constraint.Value != nil {
+			attributes["value"] = cty.StringVal(*constraint.Value)
 		}
 		attributes["values_json"] = values
 
@@ -264,11 +268,8 @@ func toConstraints(constraints *[]unleash.ConstraintSchema) (cty.Value, error) {
 	return cty.ListVal(constraintValues), nil
 }
 
-func toConstraintValues(value *string, values *[]string) (cty.Value, error) {
+func toConstraintValues(values *[]string) (cty.Value, error) {
 	var allValues []string
-	if value != nil {
-		allValues = append(allValues, *value)
-	}
 	if values != nil && len(*values) > 0 {
 		allValues = append(allValues, *values...)
 	}
