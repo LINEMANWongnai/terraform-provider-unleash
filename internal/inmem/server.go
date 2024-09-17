@@ -3,11 +3,13 @@ package inmem
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -19,6 +21,7 @@ var _ unleash.StrictServerInterface = &TestServer{}
 
 type TestServer struct {
 	features map[string]map[string]unleash.FeatureSchema
+	segments map[string]unleash.AdminSegmentSchema
 	lock     *sync.RWMutex
 	next     *atomic.Int32
 }
@@ -26,6 +29,7 @@ type TestServer struct {
 func CreateTestServer() *TestServer {
 	return &TestServer{
 		features: make(map[string]map[string]unleash.FeatureSchema),
+		segments: make(map[string]unleash.AdminSegmentSchema),
 		lock:     &sync.RWMutex{},
 		next:     &atomic.Int32{},
 	}
@@ -617,4 +621,94 @@ func (response OverwriteFeatureVariantsOnEnvironments413JSONResponse) VisitOverw
 	w.WriteHeader(413)
 
 	return json.NewEncoder(w).Encode(response)
+}
+
+func (t TestServer) getSegment(id string) (unleash.AdminSegmentSchema, bool) {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+
+	segment, ok := t.segments[id]
+	return segment, ok
+}
+
+func (t TestServer) replaceSegment(segment unleash.AdminSegmentSchema) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	t.segments[fmt.Sprintf("%d", segment.Id)] = segment
+}
+
+func (t TestServer) deleteSegment(id string) bool {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	_, ok := t.segments[id]
+	if !ok {
+		return false
+	}
+	delete(t.segments, id)
+
+	return true
+}
+func (t TestServer) GetSegments(_ context.Context, request unleash.GetSegmentsRequestObject) (unleash.GetSegmentsResponseObject, error) {
+	segments := make([]unleash.AdminSegmentSchema, 0, len(t.segments))
+	for _, segment := range t.segments {
+		segments = append(segments, segment)
+	}
+	return unleash.GetSegments200JSONResponse{
+		Segments: &segments,
+	}, nil
+}
+
+func (t TestServer) CreateSegment(_ context.Context, request unleash.CreateSegmentRequestObject) (unleash.CreateSegmentResponseObject, error) {
+	segment := unleash.AdminSegmentSchema{
+		Id:          int(t.next.Add(1)),
+		Description: request.Body.Description,
+		Name:        request.Body.Name,
+		Project:     request.Body.Project,
+		Constraints: request.Body.Constraints,
+		CreatedAt:   time.Now(),
+	}
+	t.replaceSegment(segment)
+
+	return unleash.CreateSegment201JSONResponse{
+		Body: segment,
+	}, nil
+}
+
+func (t TestServer) RemoveSegment(_ context.Context, request unleash.RemoveSegmentRequestObject) (unleash.RemoveSegmentResponseObject, error) {
+	if !t.deleteSegment(request.Id) {
+		return unleash.RemoveSegment409JSONResponse{}, nil
+	}
+	return unleash.RemoveSegment204Response{}, nil
+}
+
+func (t TestServer) GetSegment(_ context.Context, request unleash.GetSegmentRequestObject) (unleash.GetSegmentResponseObject, error) {
+	segment, found := t.getSegment(request.Id)
+	if !found {
+		return unleash.GetSegment404JSONResponse{}, nil
+	}
+	return unleash.GetSegment200JSONResponse(segment), nil
+}
+
+func (t TestServer) UpdateSegment(_ context.Context, request unleash.UpdateSegmentRequestObject) (unleash.UpdateSegmentResponseObject, error) {
+	_, found := t.getSegment(request.Id)
+	if !found {
+		return unleash.UpdateSegment400JSONResponse{}, nil
+	}
+	segment := unleash.AdminSegmentSchema{
+		Name:        request.Body.Name,
+		Description: request.Body.Description,
+		Project:     request.Body.Project,
+		Constraints: request.Body.Constraints,
+	}
+	var err error
+	segment.Id, err = strconv.Atoi(request.Id)
+	if err != nil {
+		return unleash.UpdateSegment400JSONResponse{}, nil
+	}
+
+	t.replaceSegment(segment)
+
+	return unleash.UpdateSegment204Response{}, nil
 }

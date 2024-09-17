@@ -491,37 +491,12 @@ func (t TestServer) SearchFeatures(ctx context.Context, request unleash.SearchFe
 	panic("implement me")
 }
 
-func (t TestServer) GetSegments(ctx context.Context, request unleash.GetSegmentsRequestObject) (unleash.GetSegmentsResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (t TestServer) CreateSegment(ctx context.Context, request unleash.CreateSegmentRequestObject) (unleash.CreateSegmentResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (t TestServer) GetSegmentsByStrategyId(ctx context.Context, request unleash.GetSegmentsByStrategyIdRequestObject) (unleash.GetSegmentsByStrategyIdResponseObject, error) {
 	//TODO implement me
 	panic("implement me")
 }
 
 func (t TestServer) ValidateSegment(ctx context.Context, request unleash.ValidateSegmentRequestObject) (unleash.ValidateSegmentResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (t TestServer) RemoveSegment(ctx context.Context, request unleash.RemoveSegmentRequestObject) (unleash.RemoveSegmentResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (t TestServer) GetSegment(ctx context.Context, request unleash.GetSegmentRequestObject) (unleash.GetSegmentResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (t TestServer) UpdateSegment(ctx context.Context, request unleash.UpdateSegmentRequestObject) (unleash.UpdateSegmentResponseObject, error) {
 	//TODO implement me
 	panic("implement me")
 }

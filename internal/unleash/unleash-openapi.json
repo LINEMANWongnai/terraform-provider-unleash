@@ -25832,6 +25832,17 @@
 					"Segments"
 				],
 				"operationId": "updateSegment",
+				"requestBody": {
+					"description": "upsertSegmentSchema",
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/upsertSegmentSchema"
+							}
+						}
+					}
+				},
 				"responses": {
 					"204": {
 						"description": "This response has no body."

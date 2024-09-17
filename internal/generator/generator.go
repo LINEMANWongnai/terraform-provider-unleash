@@ -3,6 +3,7 @@ package generator
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"sort"
 	"strings"
@@ -16,6 +17,29 @@ import (
 
 func Generate(client unleash.ClientWithResponsesInterface, projectID string, tfWriter io.Writer, importWriter io.Writer) error {
 	ctx := context.Background()
+	hclFile := hclwrite.NewEmptyFile()
+	hclBody := hclFile.Body()
+	importHclFile := hclwrite.NewEmptyFile()
+	importHclBody := importHclFile.Body()
+
+	err := genFeatures(ctx, client, projectID, hclBody, importHclBody)
+	if err != nil {
+		return err
+	}
+	err = genSegments(ctx, client, hclBody, importHclBody)
+	if err != nil {
+		return err
+	}
+
+	_, err = hclFile.WriteTo(tfWriter)
+	if err != nil {
+		return err
+	}
+	_, err = importHclFile.WriteTo(importWriter)
+	return err
+}
+
+func genFeatures(ctx context.Context, client unleash.ClientWithResponsesInterface, projectID string, hclBody *hclwrite.Body, importHclBody *hclwrite.Body) error {
 	fetchedFeatures, err := unleash.GetFeatures(ctx, client, projectID)
 	if err != nil {
 		return err
@@ -23,11 +47,6 @@ func Generate(client unleash.ClientWithResponsesInterface, projectID string, tfW
 
 	sort.Sort(byFeatureName(fetchedFeatures))
 
-	hclFile := hclwrite.NewEmptyFile()
-	hclBody := hclFile.Body()
-
-	importHclFile := hclwrite.NewEmptyFile()
-	importHclBody := importHclFile.Body()
 	for _, fetchedFeature := range fetchedFeatures {
 		if fetchedFeature.Feature.Archived != nil && *fetchedFeature.Feature.Archived {
 			continue
@@ -65,12 +84,7 @@ func Generate(client unleash.ClientWithResponsesInterface, projectID string, tfW
 		importHclBody.AppendNewline()
 	}
 
-	_, err = hclFile.WriteTo(tfWriter)
-	if err != nil {
-		return err
-	}
-	_, err = importHclFile.WriteTo(importWriter)
-	return err
+	return nil
 }
 
 type byFeatureName []unleash.FetchedFeature
@@ -329,4 +343,51 @@ func toStrategyVariants(variants *[]unleash.StrategyVariantSchema) cty.Value {
 		variantValues = append(variantValues, cty.ObjectVal(attributes))
 	}
 	return cty.ListVal(variantValues)
+}
+
+func genSegments(ctx context.Context, client unleash.ClientWithResponsesInterface, hclBody *hclwrite.Body, importHclBody *hclwrite.Body) error {
+	segmentsResp, err := client.GetSegmentsWithResponse(ctx)
+	if err != nil {
+		return err
+	}
+	if segmentsResp.StatusCode() > 299 {
+		return fmt.Errorf("failed to get segments: %d %s", segmentsResp.StatusCode(), string(segmentsResp.Body))
+	}
+	if segmentsResp.JSON200.Segments == nil {
+		return nil
+	}
+	for _, segment := range *segmentsResp.JSON200.Segments {
+		resourceName := strings.ToLower(segment.Name)
+		resourceName = strings.ReplaceAll(strings.ReplaceAll(resourceName, ".", "_"), " ", "_")
+
+		resource := hclBody.AppendNewBlock("resource", []string{"unleash_segment", resourceName})
+		resourceBody := resource.Body()
+		resourceBody.SetAttributeValue("name", cty.StringVal(segment.Name))
+		if segment.Project != nil {
+			resourceBody.SetAttributeValue("project", cty.StringVal(*segment.Project))
+		}
+		if segment.Description != nil {
+			resourceBody.SetAttributeValue("description", cty.StringVal(*segment.Description))
+		}
+		constraints, err := toConstraints(&segment.Constraints)
+		if err != nil {
+			return err
+		}
+		resourceBody.SetAttributeValue("constraints", constraints)
+
+		hclBody.AppendNewline()
+
+		importBlock := importHclBody.AppendNewBlock("import", []string{})
+		importBody := importBlock.Body()
+		importBody.SetAttributeRaw("to", []*hclwrite.Token{
+			{
+				Type:         hclsyntax.TokenQuotedLit,
+				Bytes:        []byte("unleash_segment." + resourceName),
+				SpacesBefore: 0,
+			},
+		})
+		importBody.SetAttributeValue("id", cty.StringVal(fmt.Sprintf("%d", segment.Id)))
+		importHclBody.AppendNewline()
+	}
+	return nil
 }
