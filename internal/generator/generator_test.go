@@ -3,6 +3,7 @@ package generator_test
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"regexp"
 	"strconv"
 	"testing"
@@ -30,6 +31,7 @@ func TestGenerate(t *testing.T) {
 		environmentToggleByEnvironment map[string]bool
 		strategiesByEnvironment        map[string][]unleash.AddFeatureStrategyJSONRequestBody
 		variantsByEnvironment          map[string][]unleash.VariantSchema
+		segments                       []unleash.CreateSegmentRequestObject
 		expectedTf                     string
 		expectedImportTf               string
 	}{
@@ -408,6 +410,96 @@ func TestGenerate(t *testing.T) {
   id = "myproject.test.feature.full"
 }`,
 		},
+		{
+			name:                  "with segment",
+			projectID:             "projectwithsegment",
+			featureName:           "test.feature.segment",
+			variantsByEnvironment: map[string][]unleash.VariantSchema{},
+			segments: []unleash.CreateSegmentRequestObject{
+				{
+					Body: &unleash.CreateSegmentJSONRequestBody{
+						Name:        "QA",
+						Project:     ptr.ToPtr("projectwithsegment"),
+						Description: ptr.ToPtr("QA segment"),
+						Constraints: []unleash.ConstraintSchema{
+							{
+								CaseInsensitive: ptr.ToPtr(true),
+								ContextName:     "userId",
+								Inverted:        ptr.ToPtr(true),
+								Operator:        "IN",
+								Values:          ptr.ToPtr([]string{"1", "2"}),
+							},
+						},
+					},
+				},
+			},
+			expectedTf: `resource "unleash_feature" "test_feature_segment" {
+  project = "projectwithsegment"
+  name    = "test.feature.segment"
+  type    = "release"
+  environments = {
+    development = {
+      enabled = false
+      strategies = [{
+        constraints = null
+        disabled    = false
+        name        = "flexibleRollout"
+        parameters = {
+          groupId    = "test.feature.segment"
+          rollout    = "100"
+          stickiness = "default"
+        }
+        segments   = null
+        sort_order = null
+        title      = null
+        variants   = null
+      }]
+      variants = null
+    }
+    production = {
+      enabled = false
+      strategies = [{
+        constraints = null
+        disabled    = false
+        name        = "flexibleRollout"
+        parameters = {
+          groupId    = "test.feature.segment"
+          rollout    = "100"
+          stickiness = "default"
+        }
+        segments   = null
+        sort_order = null
+        title      = null
+        variants   = null
+      }]
+      variants = null
+    }
+  }
+}
+
+resource "unleash_segment" "qa" {
+  name        = "QA"
+  project     = "projectwithsegment"
+  description = "QA segment"
+  constraints = [{
+    case_insensitive = true
+    context_name     = "userId"
+    inverted         = true
+    operator         = "IN"
+    value            = null
+    values_json      = "[\"1\",\"2\"]"
+  }]
+}`,
+			expectedImportTf: `import {
+  to =unleash_feature.test_feature_segment
+  id = "projectwithsegment.test.feature.segment"
+}
+
+import {
+  to =unleash_segment.qa
+  id = "4"
+}`,
+		},
 	}
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(tt *testing.T) {
@@ -459,9 +551,22 @@ func TestGenerate(t *testing.T) {
 					},
 				})
 			}
+			removeFns := make([]func(), 0, len(testCase.segments))
+			for _, segment := range testCase.segments {
+				s, _ := server.CreateSegment(ctx, segment)
+				removeFns = append(removeFns, func() {
+					_, _ = server.RemoveSegment(ctx, unleash.RemoveSegmentRequestObject{
+						Id: fmt.Sprintf("%d", (s.(unleash.CreateSegment201JSONResponse)).Body.Id),
+					})
+				})
+			}
 
 			err = generator.Generate(client, testCase.projectID, tfWriter, importWriter)
 			require.NoError(tt, err)
+
+			for _, removeFn := range removeFns {
+				removeFn()
+			}
 
 			assertTfEqual(tt, testCase.expectedTf, tfWriter.String())
 			assertTfEqual(tt, testCase.expectedImportTf, importWriter.String())

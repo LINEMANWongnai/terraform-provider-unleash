@@ -136,15 +136,6 @@ func ensureStrategyNullAndEmptyConsistency(strategy *StrategyModel, strategyBefo
 	}
 }
 
-func ensureConstraintNullAndEmptyConsistency(constraint *ConstraintModel, constraintBefore ConstraintModel) {
-	tryUpdateToFalseIfBeforeFalse(constraint.CaseInsensitive, constraintBefore.CaseInsensitive, func(value types.Bool) {
-		constraint.CaseInsensitive = value
-	})
-	tryUpdateToFalseIfBeforeFalse(constraint.Inverted, constraintBefore.Inverted, func(value types.Bool) {
-		constraint.Inverted = value
-	})
-}
-
 func ensureStrategyVariantNullAndEmptyConsistency(strategyVariant *StrategyVariantModel, strategyVariantBefore StrategyVariantModel) {
 	tryUpdateToEmptyStringIfBeforeEmpty(strategyVariant.Payload, strategyVariantBefore.Payload, func(value types.String) {
 		strategyVariant.Payload = value

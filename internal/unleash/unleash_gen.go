@@ -4478,6 +4478,9 @@ type UpdateFeatureStrategySegmentsJSONRequestBody = UpdateFeatureStrategySegment
 // ValidateSegmentJSONRequestBody defines body for ValidateSegment for application/json ContentType.
 type ValidateSegmentJSONRequestBody = NameSchema
 
+// UpdateSegmentJSONRequestBody defines body for UpdateSegment for application/json ContentType.
+type UpdateSegmentJSONRequestBody = UpsertSegmentSchema
+
 // ImportJSONRequestBody defines body for Import for application/json ContentType.
 type ImportJSONRequestBody = StateSchema
 
@@ -6400,8 +6403,10 @@ type ClientInterface interface {
 	// GetSegment request
 	GetSegment(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// UpdateSegment request
-	UpdateSegment(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// UpdateSegmentWithBody request with any body
+	UpdateSegmentWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateSegment(ctx context.Context, id string, body UpdateSegmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetStrategiesBySegmentId request
 	GetStrategiesBySegmentId(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8709,8 +8714,20 @@ func (c *Client) GetSegment(ctx context.Context, id string, reqEditors ...Reques
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateSegment(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateSegmentRequest(c.Server, id)
+func (c *Client) UpdateSegmentWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateSegmentRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateSegment(ctx context.Context, id string, body UpdateSegmentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateSegmentRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -14872,8 +14889,19 @@ func NewGetSegmentRequest(server string, id string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewUpdateSegmentRequest generates requests for UpdateSegment
-func NewUpdateSegmentRequest(server string, id string) (*http.Request, error) {
+// NewUpdateSegmentRequest calls the generic UpdateSegment builder with application/json body
+func NewUpdateSegmentRequest(server string, id string, body UpdateSegmentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateSegmentRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateSegmentRequestWithBody generates requests for UpdateSegment with any type of body
+func NewUpdateSegmentRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -14898,10 +14926,12 @@ func NewUpdateSegmentRequest(server string, id string) (*http.Request, error) {
 		return nil, err
 	}
 
-	req, err := http.NewRequest("PUT", queryURL.String(), nil)
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -17647,8 +17677,10 @@ type ClientWithResponsesInterface interface {
 	// GetSegmentWithResponse request
 	GetSegmentWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetSegmentResponse, error)
 
-	// UpdateSegmentWithResponse request
-	UpdateSegmentWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*UpdateSegmentResponse, error)
+	// UpdateSegmentWithBodyWithResponse request with any body
+	UpdateSegmentWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSegmentResponse, error)
+
+	UpdateSegmentWithResponse(ctx context.Context, id string, body UpdateSegmentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSegmentResponse, error)
 
 	// GetStrategiesBySegmentIdWithResponse request
 	GetStrategiesBySegmentIdWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetStrategiesBySegmentIdResponse, error)
@@ -27760,9 +27792,17 @@ func (c *ClientWithResponses) GetSegmentWithResponse(ctx context.Context, id str
 	return ParseGetSegmentResponse(rsp)
 }
 
-// UpdateSegmentWithResponse request returning *UpdateSegmentResponse
-func (c *ClientWithResponses) UpdateSegmentWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*UpdateSegmentResponse, error) {
-	rsp, err := c.UpdateSegment(ctx, id, reqEditors...)
+// UpdateSegmentWithBodyWithResponse request with arbitrary body returning *UpdateSegmentResponse
+func (c *ClientWithResponses) UpdateSegmentWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSegmentResponse, error) {
+	rsp, err := c.UpdateSegmentWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateSegmentResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateSegmentWithResponse(ctx context.Context, id string, body UpdateSegmentJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSegmentResponse, error) {
+	rsp, err := c.UpdateSegment(ctx, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -53081,7 +53121,8 @@ func (response GetSegment404JSONResponse) VisitGetSegmentResponse(w http.Respons
 }
 
 type UpdateSegmentRequestObject struct {
-	Id string `json:"id"`
+	Id   string `json:"id"`
+	Body *UpdateSegmentJSONRequestBody
 }
 
 type UpdateSegmentResponseObject interface {
@@ -60701,6 +60742,14 @@ func (sh *strictHandler) UpdateSegment(ctx *gin.Context, id string) {
 	var request UpdateSegmentRequestObject
 
 	request.Id = id
+
+	var body UpdateSegmentJSONRequestBody
+	if err := ctx.ShouldBindJSON(&body); err != nil {
+		ctx.Status(http.StatusBadRequest)
+		ctx.Error(err)
+		return
+	}
+	request.Body = &body
 
 	handler := func(ctx *gin.Context, request interface{}) (interface{}, error) {
 		return sh.ssi.UpdateSegment(ctx, request.(UpdateSegmentRequestObject))

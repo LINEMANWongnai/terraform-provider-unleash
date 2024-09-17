@@ -3,12 +3,12 @@
 page_title: "unleash_feature Resource - terraform-provider-unleash"
 subcategory: ""
 description: |-
-  Project resource
+  Feature resource
 ---
 
 # unleash_feature (Resource)
 
-Project resource
+Feature resource
 
 
 

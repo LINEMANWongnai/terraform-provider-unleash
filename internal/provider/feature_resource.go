@@ -42,7 +42,7 @@ func (r *FeatureResource) Metadata(_ context.Context, req resource.MetadataReque
 
 func (r *FeatureResource) Schema(_ context.Context, _ resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
-		MarkdownDescription: "Project resource",
+		MarkdownDescription: "Feature resource",
 
 		Attributes: createFeatureResourceSchemaAttr(),
 	}
@@ -194,26 +194,9 @@ func (r *FeatureResource) addStrategy(ctx context.Context, projectID string, fea
 		strategyBody.Parameters = &parameters
 	}
 	if len(strategy.Constraints) > 0 {
-		constraints := make([]unleash.ConstraintSchema, 0, len(strategy.Constraints))
-		for _, constraint := range strategy.Constraints {
-			constraintBody := unleash.ConstraintSchema{
-				CaseInsensitive: constraint.CaseInsensitive.ValueBoolPointer(),
-				ContextName:     constraint.ContextName.ValueString(),
-				Inverted:        constraint.Inverted.ValueBoolPointer(),
-				Operator:        unleash.ConstraintSchemaOperator(constraint.Operator.ValueString()),
-			}
-			if !constraint.Value.IsNull() {
-				constraintBody.Value = ptr.ToPtr(constraint.Value.ValueString())
-			}
-			if !constraint.JsonValues.IsNull() {
-				values, err := toStringValues(constraint.JsonValues.ValueString())
-				if err != nil {
-					return "", err
-				}
-				constraintBody.Values = &values
-			}
-
-			constraints = append(constraints, constraintBody)
+		constraints, err := toConstraintsBody(strategy.Constraints)
+		if err != nil {
+			return "", err
 		}
 		strategyBody.Constraints = &constraints
 	}
@@ -258,6 +241,32 @@ func (r *FeatureResource) addStrategy(ctx context.Context, projectID string, fea
 	}
 
 	return *resp.JSON200.Id, nil
+}
+
+func toConstraintsBody(constraintModels []ConstraintModel) ([]unleash.ConstraintSchema, error) {
+	constraints := make([]unleash.ConstraintSchema, 0, len(constraintModels))
+	for _, constraint := range constraintModels {
+		constraintBody := unleash.ConstraintSchema{
+			CaseInsensitive: constraint.CaseInsensitive.ValueBoolPointer(),
+			ContextName:     constraint.ContextName.ValueString(),
+			Inverted:        constraint.Inverted.ValueBoolPointer(),
+			Operator:        unleash.ConstraintSchemaOperator(constraint.Operator.ValueString()),
+		}
+		if !constraint.Value.IsNull() {
+			constraintBody.Value = ptr.ToPtr(constraint.Value.ValueString())
+		}
+		if !constraint.JsonValues.IsNull() {
+			values, err := toStringValues(constraint.JsonValues.ValueString())
+			if err != nil {
+				return constraints, err
+			}
+			constraintBody.Values = &values
+		}
+
+		constraints = append(constraints, constraintBody)
+	}
+
+	return constraints, nil
 }
 
 func (r *FeatureResource) updateStrategy(ctx context.Context, projectID string, featureName string, environmentID string, strategy StrategyModel, existingStrategy StrategyModel) error {

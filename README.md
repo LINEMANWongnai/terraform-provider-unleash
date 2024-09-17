@@ -14,7 +14,7 @@ terraform {
   required_providers {
     unleash = {
       source  = "LINEMANWongnai/unleash"
-      version = "1.3.2"
+      version = "1.6.0"
     }
   }
 }
@@ -70,6 +70,7 @@ resource "unleash_feature" "default_feature_1" {
 
 * [provider](docs/index.md)
 * [feature](docs/resources/feature.md)
+* [feature](docs/resources/segment.md)
 
 ## Generating existing features
 
