@@ -443,7 +443,7 @@ func (t TestServer) SetStrategySortOrder(_ context.Context, request unleash.SetS
 			strategies = *environment.Strategies
 		}
 		for i := range strategies {
-			strategy := strategies[i]
+			strategy := &strategies[i]
 			for _, sortOrderWithID := range *request.Body {
 				if *strategy.Id == sortOrderWithID.Id {
 					strategy.SortOrder = ptr.ToPtr(sortOrderWithID.SortOrder)

@@ -6,15 +6,14 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/ptr"
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-
-	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/ptr"
-	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
 )
 
 var _ resource.Resource = &FeatureResource{}
@@ -32,8 +31,8 @@ type FeatureResourceModel struct {
 	FeatureModel
 }
 
-func resolveID(FeatureResourceModel FeatureResourceModel) string {
-	return FeatureResourceModel.Project.ValueString() + "." + FeatureResourceModel.Name.ValueString()
+func resolveID(featureResourceModel FeatureResourceModel) string {
+	return featureResourceModel.Project.ValueString() + "." + featureResourceModel.Name.ValueString()
 }
 
 func (r *FeatureResource) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -145,22 +144,33 @@ func (r *FeatureResource) updateStrategies(ctx context.Context, projectID string
 	existingStrategyByKey := toStrategyModelByIDName(existingEnv.Strategies)
 	newStrategyByKey := toStrategyModelByIDName(environment.Strategies)
 
-	for key, strategy := range existingStrategyByKey {
-		_, ok := newStrategyByKey[key]
-		if ok {
-			continue
+	// We need to add/update the enabled strategies first to avoid unleash server automatically create the default strategy
+	enabledStrategies := make([]strategyModelWithIndex, 0, len(environment.Strategies))
+	disabledStrategies := make([]strategyModelWithIndex, 0, len(environment.Strategies))
+	for i, strategy := range environment.Strategies {
+		smi := strategyModelWithIndex{
+			strategyModel: strategy,
+			idx:           i,
 		}
-		err := r.deleteStrategy(ctx, projectID, featureName, environmentID, strategy)
-		if err != nil {
-			return environment, err
+		if !strategy.Disabled.IsNull() && strategy.Disabled.ValueBool() {
+			disabledStrategies = append(disabledStrategies, smi)
+		} else {
+			enabledStrategies = append(enabledStrategies, smi)
 		}
 	}
-	for i, strategy := range environment.Strategies {
+	upsertStrategies := make([]strategyModelWithIndex, 0, len(environment.Strategies))
+	upsertStrategies = append(upsertStrategies, enabledStrategies...)
+	upsertStrategies = append(upsertStrategies, disabledStrategies...)
+
+	for _, smi := range upsertStrategies {
+		strategy := smi.strategyModel
+		i := smi.idx
 		if r.shouldIgnoreStrategy(strategy.Title.ValueString()) {
 			return environment, fmt.Errorf("strategy title %s matches ignore regex. This strategy should not be managed by terraform", strategy.Title.ValueString())
 		}
 		key := toStrategyModelKey(strategy)
 		existingStrategy, ok := existingStrategyByKey[key]
+
 		if ok {
 			err := r.updateStrategy(ctx, projectID, featureName, environmentID, strategy, existingStrategy)
 			if err != nil {
@@ -173,6 +183,17 @@ func (r *FeatureResource) updateStrategies(ctx context.Context, projectID string
 			}
 			strategy.Id = types.StringValue(id)
 			environment.Strategies[i] = strategy
+		}
+	}
+
+	for key, strategy := range existingStrategyByKey {
+		_, ok := newStrategyByKey[key]
+		if ok {
+			continue
+		}
+		err := r.deleteStrategy(ctx, projectID, featureName, environmentID, strategy)
+		if err != nil {
+			return environment, err
 		}
 	}
 
@@ -861,4 +882,9 @@ func removeIgnoredStrategies(ctx context.Context, fetchedFeature *unleash.Fetche
 		}
 		env.FetchedStrategies = strategiesWithoutIgnore
 	}
+}
+
+type strategyModelWithIndex struct {
+	strategyModel StrategyModel
+	idx           int
 }

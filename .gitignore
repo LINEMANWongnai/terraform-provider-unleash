@@ -39,3 +39,7 @@ website/vendor
 /cover.xml
 /cover.json
 /cover.profile
+.custom-gcl.yml
+.golangci.yml
+Dockerfile
+Makefile

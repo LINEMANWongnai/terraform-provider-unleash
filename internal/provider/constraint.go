@@ -3,10 +3,9 @@ package provider
 import (
 	"encoding/json"
 
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-
-	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
 )
 
 type ConstraintModel struct {

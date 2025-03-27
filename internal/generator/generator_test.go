@@ -8,13 +8,12 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/generator"
 	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/inmem"
 	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/ptr"
 	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGenerate(t *testing.T) {
