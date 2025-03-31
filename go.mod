@@ -2,6 +2,8 @@ module github.com/LINEMANWongnai/terraform-provider-unleash
 
 go 1.23.0
 
+toolchain go1.24.1
+
 require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/google/go-cmp v0.7.0
@@ -14,7 +16,7 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/oapi-codegen/oapi-codegen/v2 v2.3.0
 	github.com/oapi-codegen/runtime v1.1.1
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/zclconf/go-cty v1.16.2
 )
 
