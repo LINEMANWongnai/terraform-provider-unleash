@@ -6,9 +6,8 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-
 	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/inmem"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
 func TestAccFeatureResourceLarge(t *testing.T) {

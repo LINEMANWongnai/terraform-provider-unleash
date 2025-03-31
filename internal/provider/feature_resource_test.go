@@ -4,9 +4,8 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-
 	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/inmem"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
 func TestAccFeatureResourceMinimal(t *testing.T) {
@@ -510,10 +509,22 @@ resource "unleash_feature" "full" {
 			strategies = [
 				{
 					name = "flexibleRollout"
-					disabled = false
+					disabled = true 
+					sort_order = 2
 					parameters = {
 						"rollout" = "100"
 						"stickiness" = "session"
+						"groupId" = "test-feature.full"
+					}
+				},
+				{
+					name = "flexibleRollout"
+					title = "another rollout 3"
+					disabled = false 
+					sort_order = 3
+					parameters = {
+						"rollout" = "30"
+						"stickiness" = "default"
 						"groupId" = "test-feature.full"
 					}
 				},
@@ -543,14 +554,13 @@ resource "unleash_feature" "full" {
 					resource.TestCheckResourceAttr("unleash_feature.full", "description", "desc test-feature.full"),
 					resource.TestCheckResourceAttr("unleash_feature.full", "type", "release"),
 					resource.TestCheckResourceAttr("unleash_feature.full", "environments.production.enabled", "true"),
-					resource.TestCheckResourceAttr("unleash_feature.full", "environments.production.strategies.#", "1"),
-					resource.TestCheckTypeSetElemNestedAttrs("unleash_feature.full", "environments.production.strategies.*", map[string]string{
-						"name":                  "flexibleRollout",
-						"disabled":              "false",
-						"parameters.rollout":    "100",
-						"parameters.stickiness": "session",
-						"parameters.groupId":    "test-feature.full",
-					}),
+					resource.TestCheckResourceAttr("unleash_feature.full", "environments.production.strategies.#", "2"),
+					resource.TestCheckNoResourceAttr("unleash_feature.full", "environments.production.strategies.0.title"),
+					resource.TestCheckResourceAttr("unleash_feature.full", "environments.production.strategies.0.name", "flexibleRollout"),
+					resource.TestCheckResourceAttr("unleash_feature.full", "environments.production.strategies.0.parameters.rollout", "100"),
+					resource.TestCheckResourceAttr("unleash_feature.full", "environments.production.strategies.1.title", "another rollout 3"),
+					resource.TestCheckResourceAttr("unleash_feature.full", "environments.production.strategies.1.name", "flexibleRollout"),
+					resource.TestCheckResourceAttr("unleash_feature.full", "environments.production.strategies.1.parameters.rollout", "30"),
 					resource.TestCheckResourceAttr("unleash_feature.full", "environments.development.enabled", "true"),
 					resource.TestCheckResourceAttr("unleash_feature.full", "environments.development.strategies.#", "1"),
 					resource.TestCheckTypeSetElemNestedAttrs("unleash_feature.full", "environments.development.strategies.*", map[string]string{

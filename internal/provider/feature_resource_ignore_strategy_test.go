@@ -5,12 +5,11 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-	"github.com/hashicorp/terraform-plugin-testing/terraform"
-
 	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/inmem"
 	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/ptr"
 	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 func TestAccFeatureResourceIgnoreStrategy(t *testing.T) {

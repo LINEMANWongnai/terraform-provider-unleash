@@ -4,14 +4,13 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
-
-	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
 )
 
 var _ resource.Resource = &SegmentResource{}

@@ -6,10 +6,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/kelseyhightower/envconfig"
-
 	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/generator"
 	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
+	"github.com/kelseyhightower/envconfig"
 )
 
 type Config struct {
@@ -28,7 +27,7 @@ func main() {
 }
 
 func run(cfg Config, args []string) error {
-	startTs := time.Now()
+	startTS := time.Now()
 
 	if len(args) != 2 {
 		return fmt.Errorf("usage: %s <project_id>", args[0])
@@ -66,7 +65,7 @@ func run(cfg Config, args []string) error {
 		return err
 	}
 
-	fmt.Printf("Successfully generate gen.out.tf and gen-import.out.tf files in %v seconds\n", time.Since(startTs).Seconds())
+	fmt.Printf("Successfully generate gen.out.tf and gen-import.out.tf files in %v seconds\n", time.Since(startTS).Seconds())
 
 	return nil
 }

@@ -4,10 +4,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 	"github.com/hashicorp/terraform-plugin-go/tfprotov6"
-
-	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/provider"
 )
 
 func init() {

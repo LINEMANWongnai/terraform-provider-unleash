@@ -8,11 +8,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
 	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/hashicorp/hcl/v2/hclwrite"
 	"github.com/zclconf/go-cty/cty"
-
-	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
 )
 
 func Generate(client unleash.ClientWithResponsesInterface, projectID string, tfWriter io.Writer, importWriter io.Writer) error {

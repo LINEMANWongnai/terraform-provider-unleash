@@ -3,9 +3,8 @@ package provider_test
 import (
 	"testing"
 
-	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-
 	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/inmem"
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
 )
 
 func TestAccSegmentResourceMinimal(t *testing.T) {
