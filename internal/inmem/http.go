@@ -1,3 +1,5 @@
+// Copyright (c) HashiCorp, Inc.
+
 package inmem
 
 import (
@@ -48,6 +50,7 @@ func startHTTPServer(t *testing.T, register func(engine *gin.Engine) error) int 
 		}
 	}()
 
+	// nolint
 	listenerPort := listener.Addr().(*net.TCPAddr).Port
 
 	c := http.Client{

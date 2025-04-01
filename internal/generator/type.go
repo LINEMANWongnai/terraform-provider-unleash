@@ -1,3 +1,5 @@
+// Copyright (c) HashiCorp, Inc.
+
 package generator
 
 import "github.com/zclconf/go-cty/cty"

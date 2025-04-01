@@ -33,13 +33,3 @@ website/vendor
 
 # Keep windows files with windows line endings
 *.winfile eol=crlf
-
-/.bin/**
-/makefile.mk
-/cover.xml
-/cover.json
-/cover.profile
-.custom-gcl.yml
-.golangci.yml
-Dockerfile
-Makefile
