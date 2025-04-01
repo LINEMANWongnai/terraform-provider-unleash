@@ -1,3 +1,5 @@
+// Copyright (c) HashiCorp, Inc.
+
 package generator_test
 
 import (
@@ -8,12 +10,13 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/generator"
 	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/inmem"
 	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/ptr"
 	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestGenerate(t *testing.T) {
@@ -554,6 +557,7 @@ import {
 			for _, segment := range testCase.segments {
 				s, _ := server.CreateSegment(ctx, segment)
 				removeFns = append(removeFns, func() {
+					// nolint
 					_, _ = server.RemoveSegment(ctx, unleash.RemoveSegmentRequestObject{
 						Id: fmt.Sprintf("%d", (s.(unleash.CreateSegment201JSONResponse)).Body.Id),
 					})

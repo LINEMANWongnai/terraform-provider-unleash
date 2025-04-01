@@ -1,3 +1,5 @@
+// Copyright (c) HashiCorp, Inc.
+
 package provider_test
 
 import (
@@ -5,11 +7,12 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
+	"github.com/hashicorp/terraform-plugin-testing/terraform"
+
 	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/inmem"
 	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/ptr"
 	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
-	"github.com/hashicorp/terraform-plugin-testing/helper/resource"
-	"github.com/hashicorp/terraform-plugin-testing/terraform"
 )
 
 func TestAccFeatureResourceIgnoreStrategy(t *testing.T) {
@@ -100,6 +103,10 @@ resource "unleash_feature" "automated" {
 				// Once the Read method is able to refresh information from
 				// the upstream service, this can be removed.
 				ImportStateVerifyIgnore: []string{},
+				ImportState:             true,
+				ImportStatePersist:      true,
+				ImportStateId:           "default.test-feature.automated",
+				ResourceName:            "unleash_feature.automated",
 			},
 			//	Update and Read testing
 			{
@@ -148,6 +155,7 @@ resource "unleash_feature" "automated" {
 							FeatureName: "test-feature.automated",
 							Environment: "production",
 						})
+						// nolint
 						strategiesResp := resp.(unleash.GetFeatureStrategies200JSONResponse)
 						if len(strategiesResp) != 2 {
 							return fmt.Errorf("expected 2 strategies, got %d", len(strategiesResp))

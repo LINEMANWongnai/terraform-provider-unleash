@@ -1,3 +1,5 @@
+// Copyright (c) HashiCorp, Inc.
+
 package main
 
 import (
@@ -5,8 +7,9 @@ import (
 	"flag"
 	"log"
 
-	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/provider"
 	"github.com/hashicorp/terraform-plugin-framework/providerserver"
+
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/provider"
 )
 
 var (
@@ -17,8 +20,6 @@ var (
 	// goreleaser can pass other information to the main package, such as the specific commit
 	// https://goreleaser.com/cookbooks/using-main.version/
 )
-
-//go:generate go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs generate
 
 func main() {
 	var debug bool

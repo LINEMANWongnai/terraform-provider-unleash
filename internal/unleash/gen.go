@@ -1,3 +1,5 @@
+// Copyright (c) HashiCorp, Inc.
+
 package unleash
 
 // openapi file from {unleash-host}/docs/openapi.json

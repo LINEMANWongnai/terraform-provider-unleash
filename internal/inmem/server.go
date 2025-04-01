@@ -1,3 +1,5 @@
+// Copyright (c) HashiCorp, Inc.
+
 package inmem
 
 import (
@@ -705,6 +707,7 @@ func (t TestServer) UpdateSegment(_ context.Context, request unleash.UpdateSegme
 	var err error
 	segment.Id, err = strconv.Atoi(request.Id)
 	if err != nil {
+		// nolint
 		return unleash.UpdateSegment400JSONResponse{}, nil
 	}
 
