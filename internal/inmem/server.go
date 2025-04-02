@@ -22,18 +22,20 @@ import (
 var _ unleash.StrictServerInterface = &TestServer{}
 
 type TestServer struct {
-	features map[string]map[string]unleash.FeatureSchema
-	segments map[string]unleash.AdminSegmentSchema
-	lock     *sync.RWMutex
-	next     *atomic.Int32
+	features      map[string]map[string]unleash.FeatureSchema
+	segments      map[string]unleash.AdminSegmentSchema
+	contextFields map[string]unleash.ContextFieldSchema
+	lock          *sync.RWMutex
+	next          *atomic.Int32
 }
 
 func CreateTestServer() *TestServer {
 	return &TestServer{
-		features: make(map[string]map[string]unleash.FeatureSchema),
-		segments: make(map[string]unleash.AdminSegmentSchema),
-		lock:     &sync.RWMutex{},
-		next:     &atomic.Int32{},
+		features:      make(map[string]map[string]unleash.FeatureSchema),
+		segments:      make(map[string]unleash.AdminSegmentSchema),
+		contextFields: make(map[string]unleash.ContextFieldSchema),
+		lock:          &sync.RWMutex{},
+		next:          &atomic.Int32{},
 	}
 }
 
@@ -652,6 +654,7 @@ func (t TestServer) deleteSegment(id string) bool {
 
 	return true
 }
+
 func (t TestServer) GetSegments(_ context.Context, request unleash.GetSegmentsRequestObject) (unleash.GetSegmentsResponseObject, error) {
 	segments := make([]unleash.AdminSegmentSchema, 0, len(t.segments))
 	for _, segment := range t.segments {
@@ -714,4 +717,101 @@ func (t TestServer) UpdateSegment(_ context.Context, request unleash.UpdateSegme
 	t.replaceSegment(segment)
 
 	return unleash.UpdateSegment204Response{}, nil
+}
+
+func (t TestServer) CreateContextField(_ context.Context, request unleash.CreateContextFieldRequestObject) (unleash.CreateContextFieldResponseObject, error) {
+	_, ok := t.getContextField(request.Body.Name)
+	if ok {
+		return CreateContextField400JSONResponse{}, nil
+	}
+
+	contextField := unleash.ContextFieldSchema{
+		Name:        request.Body.Name,
+		Description: request.Body.Description,
+		LegalValues: request.Body.LegalValues,
+		SortOrder:   request.Body.SortOrder,
+		Stickiness:  request.Body.Stickiness,
+	}
+	t.replaceContextField(contextField)
+
+	return unleash.CreateContextField201JSONResponse{
+		Body:    contextField,
+		Headers: unleash.CreateContextField201ResponseHeaders{},
+	}, nil
+}
+
+type CreateContextField400JSONResponse struct {
+}
+
+func (response CreateContextField400JSONResponse) VisitCreateContextFieldResponse(w http.ResponseWriter) error {
+	w.WriteHeader(400)
+
+	return json.NewEncoder(w).Encode("")
+}
+
+func (t TestServer) DeleteContextField(_ context.Context, request unleash.DeleteContextFieldRequestObject) (unleash.DeleteContextFieldResponseObject, error) {
+	if !t.deleteContextField(request.ContextField) {
+		return unleash.DeleteContextField200Response{}, nil
+	}
+	return unleash.DeleteContextField200Response{}, nil
+}
+
+func (t TestServer) GetContextField(_ context.Context, request unleash.GetContextFieldRequestObject) (unleash.GetContextFieldResponseObject, error) {
+	contextField, found := t.getContextField(request.ContextField)
+	if !found {
+		return unleash.GetContextField200JSONResponse{}, nil
+	}
+	return unleash.GetContextField200JSONResponse(contextField), nil
+}
+
+func (t TestServer) GetContextFields(_ context.Context, _ unleash.GetContextFieldsRequestObject) (unleash.GetContextFieldsResponseObject, error) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	var resp unleash.GetContextFields200JSONResponse
+	for _, contextField := range t.contextFields {
+		resp = append(resp, contextField)
+	}
+
+	return resp, nil
+}
+
+func (t TestServer) replaceContextField(contextField unleash.ContextFieldSchema) {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	t.contextFields[contextField.Name] = contextField
+}
+
+func (t TestServer) getContextField(name string) (unleash.ContextFieldSchema, bool) {
+	t.lock.RLock()
+	defer t.lock.RUnlock()
+
+	contextField, ok := t.contextFields[name]
+	return contextField, ok
+}
+
+func (t TestServer) deleteContextField(name string) bool {
+	t.lock.Lock()
+	defer t.lock.Unlock()
+
+	_, ok := t.contextFields[name]
+	if !ok {
+		return false
+	}
+	delete(t.contextFields, name)
+
+	return true
+}
+
+func (t TestServer) UpdateContextField(_ context.Context, request unleash.UpdateContextFieldRequestObject) (unleash.UpdateContextFieldResponseObject, error) {
+	t.replaceContextField(unleash.ContextFieldSchema{
+		Name:        request.ContextField,
+		Description: request.Body.Description,
+		LegalValues: request.Body.LegalValues,
+		SortOrder:   request.Body.SortOrder,
+		Stickiness:  request.Body.Stickiness,
+	})
+
+	return unleash.UpdateContextField200Response{}, nil
 }

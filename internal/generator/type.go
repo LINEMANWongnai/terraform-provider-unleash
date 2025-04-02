@@ -9,6 +9,7 @@ var variantType cty.Type
 var variantOverrideType cty.Type
 var constraintType cty.Type
 var strategyVariantType cty.Type
+var legalValueType cty.Type
 
 func init() {
 	environmentType = createEnvironmentType()
@@ -16,6 +17,7 @@ func init() {
 	variantOverrideType = createVariantOverrideType()
 	constraintType = createConstraintType()
 	strategyVariantType = createStrategyVariantType()
+	legalValueType = createLegalValueType()
 }
 
 func createEnvironmentType() cty.Type {
@@ -77,5 +79,12 @@ func createStrategyVariantType() cty.Type {
 		"weight":       cty.Number,
 		"weight_type":  cty.String,
 		"stickiness":   cty.String,
+	})
+}
+
+func createLegalValueType() cty.Type {
+	return cty.Object(map[string]cty.Type{
+		"value":       cty.String,
+		"description": cty.String,
 	})
 }

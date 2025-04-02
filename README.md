@@ -71,6 +71,7 @@ resource "unleash_feature" "default_feature_1" {
 * [provider](docs/index.md)
 * [feature](docs/resources/feature.md)
 * [segment](docs/resources/segment.md)
+* [context_field](docs/resources/context_field.md)
 
 ## Generating existing features
 
