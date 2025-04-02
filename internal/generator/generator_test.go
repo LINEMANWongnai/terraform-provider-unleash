@@ -34,6 +34,7 @@ func TestGenerate(t *testing.T) {
 		strategiesByEnvironment        map[string][]unleash.AddFeatureStrategyJSONRequestBody
 		variantsByEnvironment          map[string][]unleash.VariantSchema
 		segments                       []unleash.CreateSegmentRequestObject
+		contextFields                  []unleash.ContextFieldSchema
 		expectedTf                     string
 		expectedImportTf               string
 	}{
@@ -268,7 +269,53 @@ func TestGenerate(t *testing.T) {
 					},
 				},
 			},
-			expectedTf: `resource "unleash_feature" "test_feature_full" {
+			contextFields: []unleash.ContextFieldSchema{
+				{
+					Name: "userId",
+				},
+				{
+					Name:        "restaurantID",
+					Description: ptr.ToPtr("Public ID of restaurant"),
+				},
+				{
+					Name:       "UA",
+					SortOrder:  ptr.ToPtr(20),
+					Stickiness: ptr.ToPtr(true),
+					LegalValues: ptr.ToPtr([]unleash.LegalValueSchema{
+						{
+							Description: nil,
+							Value:       "Default",
+						},
+						{
+							Description: ptr.ToPtr("Chrome Browser"),
+							Value:       "Chrome",
+						},
+					}),
+				},
+			},
+			expectedTf: `resource "unleash_context_field" "userid" {
+  name = "userId"
+}
+
+resource "unleash_context_field" "restaurantid" {
+  name        = "restaurantID"
+  description = "Public ID of restaurant"
+}
+
+resource "unleash_context_field" "ua" {
+  name       = "UA"
+  sort_order = 20
+  stickiness = true
+  legal_values = [{
+    description = null
+    value       = "Default"
+    }, {
+    description = "Chrome Browser"
+    value       = "Chrome"
+  }]
+}
+
+resource "unleash_feature" "test_feature_full" {
   project = "myproject"
   name    = "test.feature.full"
   type    = "release"
@@ -408,6 +455,21 @@ func TestGenerate(t *testing.T) {
   }
 }`,
 			expectedImportTf: `import {
+  to =unleash_context_field.userid
+  id = "userId"
+}
+
+import {
+  to =unleash_context_field.restaurantid
+  id = "restaurantID"
+}
+
+import {
+  to =unleash_context_field.ua
+  id = "UA"
+}
+
+import {
   to =unleash_feature.test_feature_full
   id = "myproject.test.feature.full"
 }`,
@@ -560,6 +622,22 @@ import {
 					// nolint
 					_, _ = server.RemoveSegment(ctx, unleash.RemoveSegmentRequestObject{
 						Id: fmt.Sprintf("%d", (s.(unleash.CreateSegment201JSONResponse)).Body.Id),
+					})
+				})
+			}
+			for _, contextField := range testCase.contextFields {
+				_, _ = server.CreateContextField(ctx, unleash.CreateContextFieldRequestObject{
+					Body: &unleash.CreateContextFieldJSONRequestBody{
+						Name:        contextField.Name,
+						Description: contextField.Description,
+						LegalValues: contextField.LegalValues,
+						SortOrder:   contextField.SortOrder,
+						Stickiness:  contextField.Stickiness,
+					},
+				})
+				removeFns = append(removeFns, func() {
+					_, _ = server.DeleteContextField(ctx, unleash.DeleteContextFieldRequestObject{
+						ContextField: contextField.Name,
 					})
 				})
 			}

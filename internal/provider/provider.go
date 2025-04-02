@@ -6,13 +6,14 @@ import (
 	"context"
 	"regexp"
 
-	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/function"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
 )
 
 // Ensure UnleashProvider satisfies various provider interfaces.
@@ -98,6 +99,7 @@ func (p *UnleashProvider) Resources(_ context.Context) []func() resource.Resourc
 	return []func() resource.Resource{
 		NewFeatureResource,
 		NewSegmentResource,
+		NewContextFieldResource,
 	}
 }
 

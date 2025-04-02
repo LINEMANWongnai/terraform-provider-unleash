@@ -6,12 +6,13 @@ import (
 	"encoding/json"
 	"sort"
 
-	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
+
+	"github.com/LINEMANWongnai/terraform-provider-unleash/internal/unleash"
 )
 
 type FeatureModel struct {

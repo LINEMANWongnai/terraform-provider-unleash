@@ -88,32 +88,7 @@ func (t TestServer) ValidateConstraint(ctx context.Context, request unleash.Vali
 	panic("implement me")
 }
 
-func (t TestServer) GetContextFields(ctx context.Context, request unleash.GetContextFieldsRequestObject) (unleash.GetContextFieldsResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (t TestServer) CreateContextField(ctx context.Context, request unleash.CreateContextFieldRequestObject) (unleash.CreateContextFieldResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
 func (t TestServer) Validate(ctx context.Context, request unleash.ValidateRequestObject) (unleash.ValidateResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (t TestServer) DeleteContextField(ctx context.Context, request unleash.DeleteContextFieldRequestObject) (unleash.DeleteContextFieldResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (t TestServer) GetContextField(ctx context.Context, request unleash.GetContextFieldRequestObject) (unleash.GetContextFieldResponseObject, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (t TestServer) UpdateContextField(ctx context.Context, request unleash.UpdateContextFieldRequestObject) (unleash.UpdateContextFieldResponseObject, error) {
 	//TODO implement me
 	panic("implement me")
 }
